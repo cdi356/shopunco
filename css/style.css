@@ -45,7 +45,7 @@ button {
 .header {
     text-align: center;
     justify-content: center;
-    background-color: black;
+    background-color: #520045;
 
     color: white;
     font-style: italic;
@@ -59,13 +59,13 @@ button {
 .page-header {
     padding: 20px;
     padding-bottom: 40px;
-    color:black;
+    color: black;
 }
 
 .tabs {
     text-align: center;
     justify-content: center;
-    background-color: black;
+    background-color: #520045;
 
     color: white;
     font-style: italic;
