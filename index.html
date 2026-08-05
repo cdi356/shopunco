@@ -12,23 +12,37 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
 </head>
 
 <body>
 
 <header class="header">
-    <h1>unco</h1>
-
+    <h1 class="name">unco</h1>
     <header class="tabs">
-    <button class="tab active" data-page="shop">Shop</button>
-    <button class="tab" data-page="custom">Custom</button>
-    <button class="tab" data-page="about">About</button>
-    <button class="tab" data-page="contact">Contact Us</button>
+        <button class="tab active" data-page="top">Top Selling</button>
+        <button class="tab" data-page="editors">Editor's Picks</button>
+        <button class="tab" data-page="underrated">Underrated</button>
+        <button class="tab" data-page="wip">W.I.P.</button>
+    </header>
+    <div class="search-bar" id="search-bar">
+        <input
+                id="search"
+                type="search"
+                placeholder="what would you like to order today?"
+        >
+        <button class="search-button" onclick="search()">
+            <span class="material-symbols-rounded">search</span>
+        </button>
+    </div>
+    <header class="tabs">
+        <button class="tab" data-page="account">Account</button>
+        <button class="tab" data-page="contact">Contact Us</button>
+        <button class="tab" data-page="cart">Cart</button>
+    </header>
 </header>
-</header>
-
-
 
 <main class="content" id="content">
 
@@ -38,6 +52,7 @@
 
 </footer>
 
+<script src="js/products.js"></script>
 <script src="js/main.js"></script>
 
 </body>
