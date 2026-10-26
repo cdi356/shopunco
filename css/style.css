@@ -68,7 +68,7 @@ button {
 .name {
     padding-left: 30px;
     padding-right: 30px;
-    padding-top: 5px;
+    padding-top: 3px;
 }
 
 .tabs {
@@ -243,4 +243,26 @@ button {
 
     border: 1px solid rgba(255,255,255,.15);
     border-radius: 999px;
+}
+
+.contact {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.contact-name {
+    width: 50%;
+}
+
+.contact-email {
+
+}
+
+.contact-text {
+
+}
+
+.contact-submit {
+
 }

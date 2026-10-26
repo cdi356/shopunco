@@ -35,9 +35,24 @@ const pages = {
 
     contact: `
         <h1 class="page-header">Contact Us</h1>
-        <p>
-            W.I.P.
-        </p>
+        <div class="contact">
+            <input
+                id="contact-name"
+                type="contact-name"
+                placeholder="name"
+            >
+            <input
+                id="contact-email"
+                type="contact-email"
+                placeholder="email"
+            >
+            <input
+                id="contact-text"
+                type="contact-text"
+                placeholder="textbox"
+            >
+            <button class="contact-submit">submit</button>
+        </div>
     `,
 
     cart: `
