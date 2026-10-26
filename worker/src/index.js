@@ -147,6 +147,11 @@ async function createPaymentLink(env, lines, email, orderId) {
     });
     const data = await response.json().catch(() => ({}));
 
+    // A mistyped email shouldn't block payment: Square's page asks for it anyway
+    if (email && data.errors?.some(e => e.field === "pre_populated_data.buyer_email")) {
+        return createPaymentLink(env, lines, null, orderId);
+    }
+
     if (!response.ok || !data.payment_link?.url) {
         // Shows up in the Worker's logs, never sent to the shopper
         console.error("Square payment link failed", response.status, JSON.stringify(data.errors || data));
