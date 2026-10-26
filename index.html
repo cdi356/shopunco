@@ -6,13 +6,12 @@
 
     <title>unco®</title>
 
-    <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="css/style.css">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
 </head>
@@ -20,39 +19,71 @@
 <body>
 
 <header class="header">
-    <h1 class="name">unco</h1>
-    <header class="tabs">
-        <button class="tab active" data-page="top">Top Selling</button>
-        <button class="tab" data-page="editors">Editor's Picks</button>
-        <button class="tab" data-page="underrated">Underrated</button>
-        <button class="tab" data-page="wip">W.I.P.</button>
-    </header>
+    <h1 class="name"><a href="#home">unco</a></h1>
+    <nav class="tabs">
+        <button class="tab" type="button" data-page="home">Home</button>
+        <button class="tab" type="button" data-page="top">Top Selling</button>
+        <button class="tab" type="button" data-page="editors">Editor's Picks</button>
+        <button class="tab" type="button" data-page="underrated">Underrated</button>
+        <button class="tab" type="button" data-page="wip">W.I.P.</button>
+    </nav>
     <div class="search-bar" id="search-bar">
         <input
                 id="search"
                 type="search"
                 placeholder="what would you like to order today?"
+                aria-label="Search products"
         >
-        <button class="search-button" onclick="search()">
+        <button class="search-button" type="button" aria-label="Search" onclick="search()">
             <span class="material-symbols-rounded">search</span>
         </button>
     </div>
-    <header class="tabs">
-        <button class="tab" data-page="account">Account</button>
-        <button class="tab" data-page="contact">Contact Us</button>
-        <button class="tab" data-page="cart">Cart</button>
-    </header>
+    <nav class="tabs">
+        <button class="tab" type="button" data-page="account">Account</button>
+        <button class="tab" type="button" data-page="cart">Cart</button>
+    </nav>
 </header>
 
 <main class="content" id="content">
 
 </main>
 
-<footer>
-
+<footer class="footer">
+    <div class="footer-columns">
+        <div class="footer-brand">
+            <p class="footer-name">unco</p>
+            <p>Everyday life, uncomplicated.</p>
+        </div>
+        <nav class="footer-column" aria-label="Shop">
+            <h2>Shop</h2>
+            <a href="#home">Home</a>
+            <a href="#top">Top Selling</a>
+            <a href="#cart">Cart</a>
+            <a href="#account">Account</a>
+        </nav>
+        <nav class="footer-column" aria-label="Help">
+            <h2>Help</h2>
+            <a href="#contact">Contact Us</a>
+            <a href="#shipping">Shipping Policy</a>
+            <a href="#returns">Returns &amp; Refunds</a>
+        </nav>
+        <nav class="footer-column" aria-label="Company">
+            <h2>Company</h2>
+            <a href="#about">About unco</a>
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+        </nav>
+    </div>
+    <div class="footer-legal">
+        <p>Prices are in US dollars. Shipping and tax are calculated at checkout.</p>
+        <p>Payments are processed securely by Square. unco never sees or stores your card details.</p>
+        <p>&copy; 2026 unco. All rights reserved.</p>
+    </div>
 </footer>
 
 <script src="js/products.js"></script>
+<script src="js/api.js"></script>
+<script src="js/account.js"></script>
 <script src="js/main.js"></script>
 
 </body>
