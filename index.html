@@ -4,56 +4,135 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>unco®</title>
-
-    <link rel="icon" href="favicon.ico">
-    <link rel="stylesheet" href="css/style.css">
+    <title>unco® | Coming Soon</title>
+    <meta name="description" content="unco is coming soon.">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --header: #453F78;
+            --hover: #5C54A0;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px 16px;
+
+            color: white;
+            font-family: "Comfortaa", Arial, Helvetica, sans-serif;
+            text-align: center;
+            background: var(--header);
+        }
+
+        .coming-soon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: clamp(72px, 22vw, 160px);
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.02em;
+        }
+
+        .smile {
+            width: clamp(150px, 46vw, 330px);
+            margin-top: 4px;
+            overflow: visible;
+        }
+
+        .smile path {
+            fill: none;
+            stroke: white;
+            stroke-width: 9;
+            stroke-linecap: round;
+            stroke-dasharray: 260;
+            stroke-dashoffset: 260;
+            animation: draw-smile 1s ease-out 0.3s forwards;
+        }
+
+        .smile circle {
+            fill: #ff9fbf;
+            opacity: 0;
+            animation: show-blush 0.4s ease-out 1.1s forwards;
+        }
+
+        .badge {
+            margin-top: 40px;
+            padding: 8px 20px;
+
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            background: var(--hover);
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 999px;
+        }
+
+        .message {
+            max-width: 420px;
+            margin-top: 20px;
+
+            font-size: 18px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        @keyframes draw-smile {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        @keyframes show-blush {
+            to {
+                opacity: 0.8;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .smile path,
+            .smile circle {
+                animation: none;
+                stroke-dashoffset: 0;
+                opacity: 0.8;
+            }
+
+            .smile path {
+                opacity: 1;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<header class="header">
-    <h1 class="name">unco</h1>
-    <header class="tabs">
-        <button class="tab active" data-page="top">Top Selling</button>
-        <button class="tab" data-page="editors">Editor's Picks</button>
-        <button class="tab" data-page="underrated">Underrated</button>
-        <button class="tab" data-page="wip">W.I.P.</button>
-    </header>
-    <div class="search-bar" id="search-bar">
-        <input
-                id="search"
-                type="search"
-                placeholder="what would you like to order today?"
-        >
-        <button class="search-button" onclick="search()">
-            <span class="material-symbols-rounded">search</span>
-        </button>
-    </div>
-    <header class="tabs">
-        <button class="tab" data-page="account">Account</button>
-        <button class="tab" data-page="contact">Contact Us</button>
-        <button class="tab" data-page="cart">Cart</button>
-    </header>
-</header>
-
-<main class="content" id="content">
-
+<main class="coming-soon">
+    <h1 class="logo">unco</h1>
+    <svg class="smile" viewBox="0 0 240 60" aria-hidden="true">
+        <circle cx="16" cy="18" r="9"/>
+        <circle cx="224" cy="18" r="9"/>
+        <path d="M30 14 Q120 78 210 14"/>
+    </svg>
+    <p class="badge">Coming soon</p>
+    <p class="message">We're putting the finishing touches on our shop. Check back soon!</p>
 </main>
-
-<footer>
-
-</footer>
-
-<script src="js/products.js"></script>
-<script src="js/main.js"></script>
 
 </body>
 </html>
