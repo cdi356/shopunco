@@ -1,0 +1,13 @@
+# Copy this file to .dev.vars (which git ignores) and fill in your
+# Square SANDBOX values from developer.squareup.com. Never commit .dev.vars.
+SQUARE_ACCESS_TOKEN=paste-your-sandbox-access-token-here
+SQUARE_LOCATION_ID=paste-your-sandbox-location-id-here
+
+# Lets Square send shoppers back to your local preview after paying
+SITE_URL=http://localhost:8080
+
+# Optional until you decide: a flat shipping fee in cents (599 = $5.99)
+# SHIPPING_FEE_CENTS=599
+
+# Optional: a fixed sales tax rate for items not in your Square catalog
+# TAX_PERCENTAGE=8.25

@@ -11,6 +11,11 @@
 
 const DEMO_MODE = true;
 
+// The checkout Worker's address (see worker/README.md). Leave empty to
+// keep the demo confirmation instead of opening Square checkout.
+// Local testing: "http://localhost:8787"
+const CHECKOUT_API_URL = "";
+
 const DB_KEY = "unco-demo-db";
 const SESSION_KEY = "unco-session";
 const CODE_LIFETIME_MS = 10 * 60 * 1000;
@@ -228,6 +233,30 @@ const api = {
         saveDb(db);
 
         return { ok: true, order: order };
+    },
+
+    // Real: asks the checkout Worker for a Square checkout page. Only ids and
+    // quantities are sent; the Worker looks up the prices itself.
+    async createCheckout(email, items, orderId) {
+        try {
+            const response = await fetch(CHECKOUT_API_URL + "/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: email,
+                    orderId: orderId,
+                    items: items.map(item => ({ id: item.id, quantity: item.quantity }))
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || !data.checkoutUrl) {
+                return { ok: false, error: data.error || "We couldn't start checkout. Please try again." };
+            }
+            return { ok: true, url: data.checkoutUrl };
+        } catch (error) {
+            return { ok: false, error: "We couldn't reach checkout. Please check your connection and try again." };
+        }
     },
 
     // Orders are matched by email, so guest orders appear once that email signs up

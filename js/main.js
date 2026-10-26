@@ -144,6 +144,10 @@ const pages = {
         </div>
     `,
 
+    "thank-you": `
+        <div class="cart" id="thank-you"></div>
+    `,
+
     terms: `
         <h1 class="page-header">Terms of Service</h1>
         <div class="page-text">
@@ -159,9 +163,11 @@ const pageSetup = {
     top: () => renderProducts(products.filter(p => p.name.toLowerCase().includes(searchQuery))),
     cart: () => renderCart(),
     account: () => renderAccount(),
+    "thank-you": () => renderThankYou(),
 };
 
 const CART_KEY = "unco-cart";
+const PENDING_ORDER_KEY = "unco-pending-order";
 const cart = loadCart();
 let searchQuery = "";
 
@@ -383,6 +389,7 @@ function renderCart() {
             </div>
             <div class="checkout-box" id="checkout-box">
                 <button class="checkout" type="button" data-action="checkout">Proceed to Checkout</button>
+                <p class="form-error" id="checkout-error" role="alert"></p>
             </div>
             <p class="summary-note">Shipping and tax are added on the secure checkout page.</p>
         </aside>
@@ -418,14 +425,41 @@ async function startCheckout() {
 }
 
 async function finishCheckout(email) {
+    const errorBox = document.getElementById("checkout-error");
+    const button = document.querySelector("#checkout-box .checkout");
+
+    errorBox.textContent = "";
     const result = await api.placeOrder(email, cart);
     if (!result.ok) {
-        document.getElementById("checkout-error").textContent = result.error;
+        errorBox.textContent = result.error;
+        return;
+    }
+
+    const order = result.order;
+
+    if (CHECKOUT_API_URL) {
+        button.disabled = true;
+        button.textContent = "Opening secure checkout...";
+
+        const checkout = await api.createCheckout(order.email, cart, order.id);
+        if (!checkout.ok) {
+            errorBox.textContent = checkout.error;
+            button.disabled = false;
+            button.textContent = "Try Again";
+            return;
+        }
+
+        // The cart is emptied when Square sends the shopper back to #thank-you
+        try {
+            localStorage.setItem(PENDING_ORDER_KEY, order.id);
+        } catch (error) {
+            // Storage unavailable; the cart just won't empty itself afterwards
+        }
+        location.href = checkout.url;
         return;
     }
 
     const session = await api.getSession();
-    const order = result.order;
 
     cart.length = 0;
     saveCart();
@@ -441,6 +475,39 @@ async function finishCheckout(email) {
                 ? `<a class="button-link" href="#account">View your order history</a>`
                 : `<p>Create an account with this email to see this order anytime.</p>
                    <a class="button-link" href="#account">Create an account</a>`}
+        </div>
+    `;
+}
+
+// Square sends shoppers here after paying, with ?order=<our order id>
+function renderThankYou() {
+    const orderId = new URLSearchParams(location.search).get("order") || "";
+    let pending = null;
+
+    try {
+        pending = localStorage.getItem(PENDING_ORDER_KEY);
+    } catch (error) {
+        // Storage unavailable; leave the cart as it is
+    }
+
+    if (orderId && orderId === pending) {
+        cart.length = 0;
+        saveCart();
+        updateCartCount();
+        try {
+            localStorage.removeItem(PENDING_ORDER_KEY);
+        } catch (error) {
+            // Storage unavailable; nothing to clear
+        }
+    }
+
+    document.getElementById("thank-you").innerHTML = `
+        <div class="order-confirmation">
+            <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
+            <h2>Thank you for your order!</h2>
+            ${orderId ? `<p>Your order number is <strong>${escapeHtml(orderId)}</strong>.</p>` : ""}
+            <p>Square will email your receipt. We'll email you again when your order ships.</p>
+            <a class="button-link" href="#home">Back to the shop</a>
         </div>
     `;
 }

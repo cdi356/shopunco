@@ -1,3 +1,5 @@
+// Optional per product: squareVariationId, the item variation ID from your
+// Square catalog. With it, checkout uses Square's price and tax settings.
 const products = [
     {
         id: 0,
@@ -154,3 +156,8 @@ const products = [
         category: "top"
     }
 ];
+
+// Lets the checkout Worker (worker/src/index.js) read the same prices
+if (typeof module !== "undefined") {
+    module.exports = products;
+}

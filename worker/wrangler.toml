@@ -1,0 +1,11 @@
+name = "unco-checkout"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Settings that aren't secret. The Square access token is NOT here:
+# locally it goes in worker/.dev.vars, and on Cloudflare it's set with
+# `npx wrangler secret put SQUARE_ACCESS_TOKEN`.
+[vars]
+SQUARE_ENVIRONMENT = "sandbox"
+ALLOWED_ORIGINS = "https://shopunco.com,https://www.shopunco.com,http://localhost:8080"
+SITE_URL = "https://shopunco.com"
