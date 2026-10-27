@@ -637,12 +637,39 @@ body {
 }
 
 .page-text p,
-.page-text ul {
+.page-text ul,
+.page-text ol {
     margin-bottom: 16px;
 }
 
-.page-text ul {
+.page-text ul,
+.page-text ol {
     padding-left: 24px;
+}
+
+.page-text li {
+    margin-bottom: 8px;
+}
+
+.page-text h2 {
+    margin: 32px 0 12px;
+
+    color: var(--header);
+    font-size: 22px;
+}
+
+.page-text a {
+    color: var(--header);
+    text-decoration: underline;
+}
+
+.page-text a:hover {
+    color: var(--hover);
+}
+
+.page-updated {
+    color: #666;
+    font-size: 15px;
 }
 
 .placeholder-note,

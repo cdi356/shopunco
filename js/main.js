@@ -111,42 +111,116 @@ const pages = {
     shipping: `
         <h1 class="page-header">Shipping Policy</h1>
         <div class="page-text">
-            ${placeholderNote}
-            <p>Shipping is free on every order.</p>
-            <p>This page will also explain:</p>
+            <p class="page-updated">Last updated: October 27, 2026</p>
+
+            <h2>Shipping is free</h2>
+            <p>Every order ships free. There's no minimum and no extra charge at checkout. New York State sales tax (4%) is added to your total when you pay.</p>
+
+            <h2>How long delivery takes</h2>
+            <p>Our products are shipped by our supplier partner from one of two places:</p>
             <ul>
-                <li>How long orders take to arrive, by region</li>
-                <li>How and when you'll receive tracking information</li>
-                <li>What to do if a package is late or lost</li>
+                <li><strong>US warehouse:</strong> usually arrives in 3 to 7 business days.</li>
+                <li><strong>Overseas warehouse:</strong> usually arrives in 7 to 15 business days.</li>
             </ul>
+            <p>Business days are Monday to Friday, not counting holidays. These are estimates, not guarantees. Carriers can be slower around holidays or in bad weather.</p>
+
+            <h2>Tracking your order</h2>
+            <p>When your order ships, its tracking number appears in your order history. To see it, open <a href="#account">Account</a> and sign in with the email you used at checkout.</p>
+            <p>Tracking can take a day or two to start showing updates after the number first appears.</p>
+
+            <h2>If your package is late or missing</h2>
+            <p>If your order hasn't arrived by the end of its delivery estimate, email us at <a href="mailto:support@shopunco.com">support@shopunco.com</a> with your order number. We'll check with the carrier and, if the package is lost, send a replacement or give you a full refund.</p>
+            <p>Please double-check your shipping address on the checkout page. If you notice a mistake after ordering, email us right away and we'll do our best to fix it before it ships.</p>
+
+            <h2>Who ships your order</h2>
+            <p>unco works with a supplier partner, CJdropshipping, who packs and ships orders for us. That's why items in one order may arrive in separate packages, on different days.</p>
         </div>
     `,
 
     returns: `
         <h1 class="page-header">Returns &amp; Refunds</h1>
         <div class="page-text">
-            ${placeholderNote}
-            <p>This page will explain:</p>
+            <p class="page-updated">Last updated: October 27, 2026</p>
+
+            <h2>The short version</h2>
             <ul>
-                <li>How many days you have to request a return or refund</li>
-                <li>Which items can be returned, and in what condition</li>
-                <li>What happens if an item arrives damaged or not as described</li>
-                <li>How to start a return and how long refunds take</li>
+                <li>Changed your mind? You can return unused items within <strong>30 days</strong> of delivery.</li>
+                <li>Arrived damaged, broken or wrong? Send us a photo within <strong>14 days</strong> and we'll send a free replacement or give you a full refund. You won't need to send it back.</li>
             </ul>
+
+            <h2>Returning an item you don't want</h2>
+            <p>If you're not happy with something, you can return it within 30 days of the day it was delivered. The item should be unused and in its original packaging.</p>
+            <p>Here's how:</p>
+            <ol>
+                <li>Email <a href="mailto:support@shopunco.com">support@shopunco.com</a> with your order number and the item you'd like to return.</li>
+                <li>We'll reply with the return address and any instructions. Please don't send items back before you hear from us, because returns sent to the wrong address can get lost.</li>
+                <li>Pack the item and mail it back. For these returns, you pay the return postage. We suggest a trackable service.</li>
+            </ol>
+            <p>Once the item reaches us, we'll refund the full price of the item, including the sales tax you paid on it.</p>
+
+            <h2>Damaged, broken or wrong items</h2>
+            <p>If something arrives damaged, doesn't work, or isn't what you ordered, that's our mistake to fix, not yours.</p>
+            <ol>
+                <li>Within 14 days of delivery, email <a href="mailto:support@shopunco.com">support@shopunco.com</a> with your order number and a photo of the problem.</li>
+                <li>Tell us whether you'd like a free replacement or a full refund.</li>
+            </ol>
+            <p>In most cases you won't need to send the item back. If we do need it back, we'll pay the return postage.</p>
+
+            <h2>When you'll get your money</h2>
+            <p>Refunds go back to the card or payment method you used at checkout. We'll email you when we send the refund. After that, your bank may take up to 10 business days to show it on your statement.</p>
+
+            <h2>Questions</h2>
+            <p>If anything here is unclear, or your situation doesn't fit, just email us at <a href="mailto:support@shopunco.com">support@shopunco.com</a>. A real person will read it and write back.</p>
         </div>
     `,
 
     privacy: `
         <h1 class="page-header">Privacy Policy</h1>
         <div class="page-text">
-            ${placeholderNote}
-            <p>This page will explain:</p>
+            <p class="page-updated">Last updated: October 27, 2026</p>
+            <p>This page explains what information unco collects when you use shopunco.com, why we need it, and who else handles it. We only collect what we need to sell you products and get them to you. We don't sell your information.</p>
+
+            <h2>What we collect</h2>
             <ul>
-                <li>What information we collect, such as your email and shipping address</li>
-                <li>How we use it, and which services we share it with to fulfill orders</li>
-                <li>How long we keep it and how to ask us to delete it</li>
-                <li>How we use cookies and advertising tools</li>
+                <li><strong>Your email address,</strong> so you can sign in to your account and we can reach you about your order.</li>
+                <li><strong>Your name, shipping address and phone number</strong> (if you give one), so your order can be delivered.</li>
+                <li><strong>Your order details,</strong> such as what you bought, what you paid, and your tracking number.</li>
+                <li><strong>Messages you send us,</strong> so we can answer them.</li>
+                <li><strong>A password,</strong> only if you choose to set one. We store it in a scrambled (hashed) form, never as plain text.</li>
             </ul>
+
+            <h2>What we don't collect</h2>
+            <p>We never see or store your card number. When you pay, you're taken to Square's secure checkout page, and Square handles your payment details directly.</p>
+
+            <h2>Who else handles your information</h2>
+            <p>We use a few trusted services to run the shop. Each one only gets what it needs to do its job:</p>
+            <ul>
+                <li><strong>Square</strong> processes your payment and collects your shipping address at checkout.</li>
+                <li><strong>CJdropshipping,</strong> our supplier partner, receives your name, shipping address and phone number so they can pack and ship your order.</li>
+                <li><strong>Shipping carriers</strong> (such as USPS or UPS) receive your name and address to deliver your package.</li>
+                <li><strong>Cloudflare</strong> runs our website's behind-the-scenes systems, which store your account, order details and shipping address.</li>
+                <li><strong>Resend</strong> sends our emails, such as your sign-in codes.</li>
+            </ul>
+            <p>We may also share information if the law requires it, or to prevent fraud.</p>
+
+            <h2>Cookies and your browser</h2>
+            <p>We don't use tracking cookies. Our site saves a few small things in your own web browser (called "local storage"), such as what's in your cart and whether you're signed in. This stays on your device, and you can clear it at any time in your browser's settings.</p>
+            <p>We don't currently use advertising or tracking tools on this site. If we add one in the future, such as the Facebook (Meta) Pixel to measure how our ads perform, we'll update this page to explain it before we turn it on.</p>
+
+            <h2>How long we keep it</h2>
+            <p>We keep your account and order information for as long as your account is open, and as long as we need it for returns, customer service, and tax and accounting records.</p>
+
+            <h2>Your choices</h2>
+            <p>You can ask us to show you, correct, or delete the information we have about you. Just email <a href="mailto:support@shopunco.com">support@shopunco.com</a> from the email address on your account. We may need to keep some order records for tax or legal reasons, and we'll tell you if that's the case.</p>
+
+            <h2>Children</h2>
+            <p>Our shop is meant for adults. We don't knowingly collect information from children under 13.</p>
+
+            <h2>Changes to this policy</h2>
+            <p>If we change this policy, we'll update this page and the "Last updated" date at the top.</p>
+
+            <h2>Contact us</h2>
+            <p>Questions about your privacy? Email <a href="mailto:support@shopunco.com">support@shopunco.com</a>.</p>
         </div>
     `,
 
@@ -157,8 +231,47 @@ const pages = {
     terms: `
         <h1 class="page-header">Terms of Service</h1>
         <div class="page-text">
-            ${placeholderNote}
-            <p>This page will explain the rules for using this site and buying from unco, including pricing, payments, and our responsibilities to you.</p>
+            <p class="page-updated">Last updated: October 27, 2026</p>
+            <p>These terms are the rules for using shopunco.com and buying from unco. We've tried to keep them short and clear. By using the site or placing an order, you agree to them.</p>
+
+            <h2>Who we are</h2>
+            <p>shopunco.com is run by unco, a small business based in New York. You can reach us at <a href="mailto:support@shopunco.com">support@shopunco.com</a>.</p>
+
+            <h2>Prices and payment</h2>
+            <ul>
+                <li>All prices are in US dollars.</li>
+                <li>Shipping is free on every order.</li>
+                <li>New York State sales tax (4%) is added at checkout. You'll see the full total before you pay.</li>
+                <li>Payments are handled by Square on Square's own secure checkout page. We never see or store your card number.</li>
+            </ul>
+            <p>We work hard to keep prices and product details correct. If we make a mistake, such as listing the wrong price, we'll contact you before shipping and you can choose to cancel for a full refund.</p>
+
+            <h2>Your order</h2>
+            <p>Your order is confirmed once your payment goes through. Orders are packed and shipped by our supplier partner, CJdropshipping. Delivery times are explained on our <a href="#shipping">Shipping Policy</a> page.</p>
+            <p>If an item turns out to be unavailable after you order, we'll let you know and give you a full refund for it.</p>
+
+            <h2>Returns and refunds</h2>
+            <p>You can return unused items within 30 days, and we'll replace or refund anything that arrives damaged or wrong. The details are on our <a href="#returns">Returns &amp; Refunds</a> page.</p>
+
+            <h2>Your account</h2>
+            <p>You can sign in with a code we email to you, or with a password if you choose to set one. Please keep access to your email account safe, since anyone who can read your email could sign in. Let us know right away if you think someone else has used your account.</p>
+
+            <h2>Using the site</h2>
+            <p>Please use the site only for shopping and normal personal use. Don't try to break, overload or misuse it, or place orders with someone else's payment details. We may cancel orders or close accounts that are used for fraud or abuse.</p>
+            <p>The text, photos and design on this site belong to unco or to the people who license them to us. Please don't copy them for commercial use without asking.</p>
+
+            <h2>Our responsibility to you</h2>
+            <p>We stand behind what we sell, as described on our Shipping and Returns pages. Please use each product as its instructions describe.</p>
+            <p>As far as the law allows, our total responsibility for any problem with an order is limited to the amount you paid for that order. Nothing in these terms takes away any rights you have under consumer protection laws.</p>
+
+            <h2>The law that applies</h2>
+            <p>These terms are governed by the laws of the State of New York.</p>
+
+            <h2>Changes to these terms</h2>
+            <p>We may update these terms from time to time. When we do, we'll change the "Last updated" date at the top. The terms in place when you placed your order apply to that order.</p>
+
+            <h2>Questions</h2>
+            <p>Email us at <a href="mailto:support@shopunco.com">support@shopunco.com</a> and a real person will write back.</p>
         </div>
     `,
 }
