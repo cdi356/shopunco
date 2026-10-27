@@ -9,7 +9,7 @@
 // demo is NOT secure and is only for trying the site.
 
 // The Worker's address (see worker/README.md). Local testing: "http://localhost:8787"
-const WORKER_URL = "";
+const WORKER_URL = "https://unco-checkout.unco-checkout.workers.dev";
 const DEMO_MODE = !WORKER_URL;
 
 const MIN_PASSWORD_LENGTH = 8;
