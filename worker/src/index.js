@@ -22,7 +22,7 @@ const FULFILLMENT_STEPS = ["to_order", "ordered", "shipped"];
 // What sending an order to CJ may change. Only these are copied onto the
 // latest saved order, so a refund that arrives meanwhile isn't undone.
 const CJ_FIELDS = ["supplier", "supplierOrderNumber", "fulfillment", "supplierError", "cjMode",
-    "cjStatus", "cjSandbox", "cjOrderedAt", "cjDryRun", "updatedAt"];
+    "cjStatus", "cjSandbox", "cjOrderedAt", "cjDryRun", "cjShipping", "updatedAt"];
 
 // Order statuses, in the order they can happen. A later status never goes
 // back to an earlier one, so a late or repeated webhook can't undo a refund.

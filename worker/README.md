@@ -140,6 +140,13 @@ as **Ordered** with CJ's order id. If anything is missing (an item with no
 CJ variant, no address) or CJ says no, the order stays in **To order** with
 the reason in red, to fix and **Send to CJ** again, or to order by hand.
 
+Shipping: CJ offers different shipping methods per product (anything with
+a battery usually only gets the "Sensitive" lines) and address. Before each
+order, the Worker asks CJ for a shipping quote and uses the first method in
+`CJ_LOGISTIC_NAME` that CJ offers. If none is offered, the desk shows what
+CJ does offer, with prices, so you can add one. The chosen method and its
+cost are shown on the order.
+
 Sending twice can't create two CJ orders: before creating one, the Worker
 asks CJ whether it already has our order number, and CJ itself refuses a
 second order with the same number.
@@ -200,10 +207,12 @@ order containing one stays on the desk to order by hand.
 
 `CJ_ORDER_MODE` in `wrangler.toml`:
 
-- `dry-run` (default): nothing is sent. The Worker builds the exact CJ
+- `dry-run` (default): no order is created. The Worker builds the exact CJ
   request, prints it to the Worker's log and stores it on the order; the
-  desk shows it under **Order that would go to CJ (dry run)**. Use this to
-  check addresses and variants before spending anything.
+  desk shows it under **Order that would go to CJ (dry run)**. With
+  `CJ_API_KEY` set, it also gets CJ's shipping quote (read-only), so you
+  see the method and cost it would use. Use this to check addresses,
+  variants and shipping before spending anything.
 - `sandbox`: sends CJ **sandbox** orders (`isSandbox: 1`), which CJ never
   charges, ships or fulfils. Good for a first end-to-end test with your key.
 - `live`: real CJ orders that cost real money. Switch to it only once dry
@@ -225,7 +234,7 @@ Orders.
 A cron trigger in `wrangler.toml` (`0 * * * *`, every hour) asks CJ about
 every order it has that hasn't shipped, 50 at a time. When CJ has a
 tracking number, the Worker fills in the carrier (CJ's shipping method,
-e.g. CJPacket Ordinary) and tracking number and sets the order to
+e.g. CJPacket Sensitive) and tracking number and sets the order to
 **Shipped**, so customers see it in their account. If CJ cancels an order,
 it goes back to **To order** with a note. To try the cron locally:
 
@@ -281,7 +290,7 @@ access token and location ID, and create the same webhook subscription under
 | `CJ_API_KEY` | secret | Lets the Worker place orders and read tracking on CJdropshipping |
 | `CJ_ORDER_MODE` | `wrangler.toml` | `dry-run` (default, sends nothing), `sandbox` (CJ test orders) or `live` (real orders, real money) |
 | `CJ_AUTO_PAY` | `wrangler.toml` | `true` pays live CJ orders from the CJ wallet balance. Otherwise you pay in My CJ |
-| `CJ_LOGISTIC_NAME` | `wrangler.toml` | CJ shipping method, e.g. `CJPacket Ordinary` |
+| `CJ_LOGISTIC_NAME` | `wrangler.toml` | CJ shipping methods you accept, best first, comma-separated, e.g. `CJPacket Ordinary,CJPacket Sensitive` |
 | `CJ_FROM_COUNTRY` | `wrangler.toml` | Country CJ ships from, e.g. `CN` or `US` |
 | `CJ_API_URL` | `.dev.vars` only | Points the Worker at a fake CJ for local testing. Leave unset |
 | `[triggers] crons` | `wrangler.toml` | How often CJ is asked for tracking numbers (hourly) |

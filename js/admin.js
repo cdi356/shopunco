@@ -241,6 +241,15 @@ function renderSupplier(order) {
         }
     }
 
+    if (order.cjShipping) {
+        const shipping = order.cjShipping;
+        parts.push(`
+            <p class="form-hint">
+                CJ shipping: ${escapeHtml(shipping.name)}${shipping.price != null ? ", " + formatPrice(Number(shipping.price)) : ""}${shipping.days ? ", " + escapeHtml(shipping.days) + " days" : ""}
+            </p>
+        `);
+    }
+
     if (order.cjDryRun) {
         parts.push(`
             <details class="desk-dry-run">

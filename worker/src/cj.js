@@ -90,10 +90,19 @@ export async function sendOrderToCj(env, order) {
     order.cjMode = mode;
 
     if (mode === "dry-run") {
+        // With a key, CJ's shipping quote is checked too. That only reads
+        // from CJ; no order is created.
+        const shipping = env.CJ_API_KEY ? await chooseShipping(env, built.request) : null;
+        if (shipping && !shipping.error) {
+            built.request.logisticName = shipping.name;
+            order.cjShipping = shipping;
+        }
+
         // Shows up in the Worker's logs, never sent anywhere
         console.log("CJ dry run for " + order.id + ": would POST shopping/order/createOrderV2", JSON.stringify(built.request));
         order.cjDryRun = { request: built.request, at: new Date().toISOString() };
-        return failed(order, "Dry run: nothing was sent to CJ (CJ_ORDER_MODE is \"dry-run\"). Order it by hand, or switch to live.");
+        return failed(order, (shipping?.error ? shipping.error + " " : "")
+            + "Dry run: nothing was sent to CJ (CJ_ORDER_MODE is \"dry-run\"). Order it by hand, or switch to live.");
     }
 
     if (!env.CJ_API_KEY) {
@@ -122,6 +131,13 @@ export async function sendOrderToCj(env, order) {
         if (existing.order) {
             return recordCjOrder(order, existing.order, mode);
         }
+
+        const shipping = await chooseShipping(env, built.request);
+        if (shipping.error) {
+            return failed(order, shipping.error);
+        }
+        built.request.logisticName = shipping.name;
+        order.cjShipping = shipping;
 
         const result = await cjRequest(env, "POST", "shopping/order/createOrderV2", built.request);
         if (result.ok && result.data?.orderId) {
@@ -168,6 +184,46 @@ function recordCjOrder(order, cjOrder, mode) {
         delete order.supplierError;
     }
     return order;
+}
+
+// CJ_LOGISTIC_NAME lists the shipping methods you accept, best first
+function shippingPreferences(env) {
+    const names = (env.CJ_LOGISTIC_NAME || "").split(",").map(name => name.trim()).filter(Boolean);
+    return names.length > 0 ? names : ["CJPacket Ordinary", "CJPacket Sensitive"];
+}
+
+// Which methods CJ offers depends on the products (e.g. batteries need a
+// "Sensitive" line) and the address, so CJ is asked for a quote and the
+// first accepted method it offers is used. Returns { name, price, days }
+// or { error }.
+async function chooseShipping(env, request) {
+    const result = await cjRequest(env, "POST", "logistic/freightCalculate", {
+        startCountryCode: request.fromCountryCode,
+        endCountryCode: request.shippingCountryCode,
+        zip: request.shippingZip,
+        products: request.products.map(line => ({ vid: line.vid, quantity: line.quantity }))
+    });
+    if (!result.ok || !Array.isArray(result.data)) {
+        console.error("CJ freight quote failed", result.status, result.code, result.message);
+        return { error: "We couldn't get CJ's shipping options (" + (result.message || "no answer") + "). Try Send to CJ again in a minute." };
+    }
+
+    const offered = result.data;
+    for (const wanted of shippingPreferences(env)) {
+        const match = offered.find(option => option.logisticName?.toLowerCase() === wanted.toLowerCase());
+        if (match) {
+            return { name: match.logisticName, price: match.logisticPrice ?? null, days: match.logisticAging || "" };
+        }
+    }
+
+    const options = [...offered]
+        .sort((a, b) => (a.logisticPrice ?? Infinity) - (b.logisticPrice ?? Infinity))
+        .slice(0, 6)
+        .map(option => option.logisticName + " ($" + option.logisticPrice + ")").join(", ");
+    return {
+        error: "CJ doesn't offer " + shippingPreferences(env).join(" or ") + " for this order. "
+            + (options ? "It offers: " + options + ". Add one to CJ_LOGISTIC_NAME." : "It offers no shipping to this address.")
+    };
 }
 
 // Returns { order } if CJ has an order with our order number, {} if not,
@@ -229,7 +285,8 @@ export function buildCjRequest(env, order) {
         shippingCountry: countryName(address.country),
         shippingPhone: (shipping.phone || "").replace(/[^\d+]/g, ""),
         email: shipping.email || order.email || "",
-        logisticName: env.CJ_LOGISTIC_NAME || "CJPacket Ordinary",
+        // Replaced by the method CJ's quote picks; see chooseShipping
+        logisticName: shippingPreferences(env)[0],
         fromCountryCode: env.CJ_FROM_COUNTRY || "CN",
         // 2 = pay from the CJ wallet while creating; 3 = create only, and
         // you pay in My CJ. (1, CJ's payment page, is deprecated.)

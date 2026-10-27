@@ -28,9 +28,10 @@ CJ_ORDER_MODE = "dry-run"
 # "true" pays live CJ orders from your CJ wallet balance as they're placed.
 # Anything else leaves them unpaid in My CJ for you to pay.
 CJ_AUTO_PAY = "false"
-# CJ's shipping method and the country CJ ships from. Check that the method
-# is offered for your products in CJ's freight calculator.
-CJ_LOGISTIC_NAME = "CJPacket Ordinary"
+# CJ shipping methods you accept, best first, separated by commas. Each
+# order uses the first one CJ's quote offers for its items and address;
+# products with batteries usually only get "Sensitive" lines.
+CJ_LOGISTIC_NAME = "CJPacket Ordinary,CJPacket Sensitive"
 CJ_FROM_COUNTRY = "CN"
 
 # After deploying, set this to the exact URL of the webhook subscription in
