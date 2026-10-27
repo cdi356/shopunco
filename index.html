@@ -4,135 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>unco® | Coming Soon</title>
-    <meta name="description" content="unco is coming soon.">
+    <title>unco®</title>
+
+    <link rel="stylesheet" href="css/style.css">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <script src="js/coming-soon.js"></script>
 
-        :root {
-            --header: #453F78;
-            --hover: #5C54A0;
-        }
-
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 24px 16px;
-
-            color: white;
-            font-family: "Comfortaa", Arial, Helvetica, sans-serif;
-            text-align: center;
-            background: var(--header);
-        }
-
-        .coming-soon {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: clamp(72px, 22vw, 160px);
-            font-weight: 700;
-            line-height: 1;
-            letter-spacing: 0.02em;
-        }
-
-        .smile {
-            width: clamp(150px, 46vw, 330px);
-            margin-top: 4px;
-            overflow: visible;
-        }
-
-        .smile path {
-            fill: none;
-            stroke: white;
-            stroke-width: 9;
-            stroke-linecap: round;
-            stroke-dasharray: 260;
-            stroke-dashoffset: 260;
-            animation: draw-smile 1s ease-out 0.3s forwards;
-        }
-
-        .smile circle {
-            fill: #ff9fbf;
-            opacity: 0;
-            animation: show-blush 0.4s ease-out 1.1s forwards;
-        }
-
-        .badge {
-            margin-top: 40px;
-            padding: 8px 20px;
-
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            background: var(--hover);
-            border: 1px solid rgba(255,255,255,.25);
-            border-radius: 999px;
-        }
-
-        .message {
-            max-width: 420px;
-            margin-top: 20px;
-
-            font-size: 18px;
-            line-height: 1.6;
-            opacity: 0.9;
-        }
-
-        @keyframes draw-smile {
-            to {
-                stroke-dashoffset: 0;
-            }
-        }
-
-        @keyframes show-blush {
-            to {
-                opacity: 0.8;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .smile path,
-            .smile circle {
-                animation: none;
-                stroke-dashoffset: 0;
-                opacity: 0.8;
-            }
-
-            .smile path {
-                opacity: 1;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-<main class="coming-soon">
-    <h1 class="logo">unco</h1>
-    <svg class="smile" viewBox="0 0 240 60" aria-hidden="true">
-        <circle cx="16" cy="18" r="9"/>
-        <circle cx="224" cy="18" r="9"/>
-        <path d="M30 14 Q120 78 210 14"/>
-    </svg>
-    <p class="badge">Coming soon</p>
-    <p class="message">We're putting the finishing touches on our shop. Check back soon!</p>
+<div class="coming-soon" id="coming-soon">
+    <div class="coming-soon-content">
+        <p class="coming-soon-logo">unco</p>
+        <svg class="coming-soon-smile" viewBox="0 0 240 60" aria-hidden="true">
+            <circle cx="16" cy="18" r="9"/>
+            <circle cx="224" cy="18" r="9"/>
+            <path d="M30 14 Q120 78 210 14"/>
+        </svg>
+        <p class="coming-soon-badge">Coming soon</p>
+        <p class="coming-soon-message">We're putting the finishing touches on our shop. Check back soon!</p>
+    </div>
+
+    <form class="unlock" id="unlock-form" hidden novalidate>
+        <label for="unlock-password">Password</label>
+        <div class="unlock-row">
+            <input id="unlock-password" type="password" autocomplete="off">
+            <button type="submit">Unlock</button>
+        </div>
+        <p class="unlock-error" id="unlock-error" role="alert"></p>
+    </form>
+</div>
+
+<header class="header">
+    <h1 class="name"><a href="#home">unco</a></h1>
+    <nav class="tabs">
+        <button class="tab" type="button" data-page="home">Home</button>
+        <button class="tab" type="button" data-page="top">Top Selling</button>
+        <button class="tab" type="button" data-page="editors">Editor's Picks</button>
+        <button class="tab" type="button" data-page="underrated">Underrated</button>
+        <button class="tab" type="button" data-page="wip">W.I.P.</button>
+    </nav>
+    <div class="search-bar" id="search-bar">
+        <input
+                id="search"
+                type="search"
+                placeholder="what would you like to order today?"
+                aria-label="Search products"
+        >
+        <button class="search-button" type="button" aria-label="Search" onclick="search()">
+            <span class="material-symbols-rounded">search</span>
+        </button>
+    </div>
+    <nav class="tabs">
+        <button class="tab" type="button" data-page="account">Account</button>
+        <button class="tab" type="button" data-page="cart">Cart</button>
+    </nav>
+</header>
+
+<main class="content" id="content">
+
 </main>
+
+<footer class="footer">
+    <div class="footer-columns">
+        <div class="footer-brand">
+            <p class="footer-name">unco</p>
+            <p>Everyday life, uncomplicated.</p>
+        </div>
+        <nav class="footer-column" aria-label="Shop">
+            <h2>Shop</h2>
+            <a href="#home">Home</a>
+            <a href="#top">Top Selling</a>
+            <a href="#cart">Cart</a>
+            <a href="#account">Account</a>
+        </nav>
+        <nav class="footer-column" aria-label="Help">
+            <h2>Help</h2>
+            <a href="#contact">Contact Us</a>
+            <a href="#shipping">Shipping Policy</a>
+            <a href="#returns">Returns &amp; Refunds</a>
+        </nav>
+        <nav class="footer-column" aria-label="Company">
+            <h2>Company</h2>
+            <a href="#about">About unco</a>
+            <a href="#privacy">Privacy Policy</a>
+            <a href="#terms">Terms of Service</a>
+        </nav>
+    </div>
+    <div class="footer-legal">
+        <p>Prices are in US dollars. Shipping is free. New York State sales tax (4%) is added at checkout.</p>
+        <p>Payments are processed securely by Square. unco never sees or stores your card details.</p>
+        <p>&copy; 2026 unco. All rights reserved.</p>
+    </div>
+</footer>
+
+<script src="js/products.js"></script>
+<script src="js/api.js"></script>
+<script src="js/account.js"></script>
+<script src="js/main.js"></script>
 
 </body>
 </html>

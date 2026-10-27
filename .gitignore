@@ -1,0 +1,7 @@
+.DS_Store
+.idea/
+
+# Checkout Worker: local secrets and build output
+worker/.dev.vars
+worker/node_modules/
+worker/.wrangler/
