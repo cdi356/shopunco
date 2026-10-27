@@ -1232,3 +1232,124 @@ body {
         transition: none;
     }
 }
+
+/* ------------------------- */
+/*        order desk         */
+/* ------------------------- */
+
+.desk-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.desk-filters,
+.desk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.desk-filter {
+    padding: 8px 16px;
+
+    color: var(--header);
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 999px;
+}
+
+.desk-filter span {
+    margin-left: 4px;
+    color: #777;
+}
+
+.desk-filter.active {
+    color: white;
+    background: var(--header);
+    border-color: var(--header);
+}
+
+.desk-filter.active span {
+    color: #ddd;
+}
+
+.desk-empty {
+    padding: 24px 0;
+}
+
+.desk-orders {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    list-style: none;
+}
+
+.desk-order h3 {
+    margin-bottom: 6px;
+    font-size: 16px;
+}
+
+.desk-columns {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    line-height: 1.5;
+}
+
+.desk-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    list-style: none;
+}
+
+.desk-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.desk-item a {
+    color: var(--header);
+    font-weight: bold;
+}
+
+.desk-form {
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+
+.desk-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 16px;
+}
+
+.desk-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.desk-form select {
+    padding: 11px 12px;
+
+    font-size: 16px;
+    background: white;
+    border: 1px solid #bbb;
+    border-radius: 12px;
+}
+
+.desk-form .button-primary {
+    align-self: flex-start;
+}
+
+@media (max-width: 700px) {
+    .desk-columns,
+    .desk-fields {
+        grid-template-columns: 1fr;
+    }
+}

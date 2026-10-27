@@ -91,6 +91,32 @@ function randomOrderId() {
     return "UNCO-" + Array.from(bytes, b => alphabet[b % alphabet.length]).join("");
 }
 
+// Sends fields as a POST, or makes a GET when there are none
+async function adminRequest(adminKey, path, fields) {
+    if (!CHECKOUT_API_URL) {
+        return { ok: false, error: "The order desk needs the checkout Worker. Set CHECKOUT_API_URL in js/api.js." };
+    }
+
+    const headers = { "Authorization": "Bearer " + adminKey };
+    if (fields) {
+        headers["Content-Type"] = "application/json";
+    }
+
+    try {
+        const response = await fetch(CHECKOUT_API_URL + path, fields
+            ? { method: "POST", headers: headers, body: JSON.stringify(fields) }
+            : { headers: headers });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return { ok: false, unauthorized: response.status === 401, error: data.error || "Something went wrong. Please try again." };
+        }
+        return { ok: true, ...data };
+    } catch (error) {
+        return { ok: false, error: "We couldn't reach the order desk. Please check your connection and try again." };
+    }
+}
+
 const api = {
     isValidEmail(rawEmail) {
         return isValidEmail(normalizeEmail(rawEmail));
@@ -294,6 +320,16 @@ const api = {
         } catch (error) {
             return {};
         }
+    },
+
+    // Real: the order desk's list of paid orders, with shipping addresses.
+    // The Worker only answers when given the ADMIN_KEY secret.
+    async adminListOrders(adminKey) {
+        return adminRequest(adminKey, "/admin/orders");
+    },
+
+    async adminUpdateOrder(adminKey, orderId, fields) {
+        return adminRequest(adminKey, "/admin/orders/" + encodeURIComponent(orderId), fields);
     },
 
     // Orders are matched by email, so guest orders appear once that email signs up

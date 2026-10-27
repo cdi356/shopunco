@@ -1,5 +1,10 @@
-// Optional per product: squareVariationId, the item variation ID from your
-// Square catalog. With it, checkout uses Square's price and tax settings.
+// Optional per product:
+// - squareVariationId: the item variation ID from your Square catalog. With
+//   it, checkout uses Square's price for that item.
+// - aliexpress: where to buy it for the customer, shown on the order desk
+//   (#admin). url is the AliExpress product page; option is exactly what to
+//   pick there, e.g.
+//   aliexpress: { url: "https://www.aliexpress.us/item/1234567890.html", option: "Color: Black, 16ft" }
 const products = [
     {
         id: 0,

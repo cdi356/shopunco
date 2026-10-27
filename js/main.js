@@ -63,6 +63,12 @@ const pages = {
         <div class="account" id="account"></div>
     `,
 
+    // Private, not linked anywhere; see js/admin.js
+    admin: `
+        <h1 class="page-header">Order desk</h1>
+        <div class="account" id="admin"></div>
+    `,
+
     contact: `
         <h1 class="page-header">Contact Us</h1>
         <div class="contact">
@@ -163,6 +169,7 @@ const pageSetup = {
     top: () => renderProducts(products.filter(p => p.name.toLowerCase().includes(searchQuery))),
     cart: () => renderCart(),
     account: () => renderAccount(),
+    admin: () => renderAdmin(),
     "thank-you": () => renderThankYou(),
 };
 

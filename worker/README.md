@@ -11,8 +11,12 @@ page and keeps track of whether each order was actually paid.
 3. Square tells the Worker when the payment goes through (or fails, or is
    refunded) with a webhook. Only that marks an order as paid. The thank-you
    page and order history ask the Worker for each order's status.
+4. A paid order goes on the **order desk**, a private page at
+   `shopunco.com/#admin`. It shows the shipping address and each item's
+   AliExpress link, so you can place the order on AliExpress, then record the
+   AliExpress order number and tracking number there.
 
-Your Square access token and webhook signature key are passwords. Never put
+Your Square access token, webhook signature key and admin key are passwords. Never put
 them in the website files, in `wrangler.toml`, in a commit, or in a chat.
 
 ## 1. Test locally with Square's sandbox
@@ -77,6 +81,33 @@ POST it to `http://localhost:8787/square/webhook`.
        npm run deploy
        ```
 
+5. Set the key that opens the order desk. Use a long random value, for
+   example one your password manager generates:
+
+   ```bash
+   npx wrangler secret put ADMIN_KEY
+   ```
+
+   Then open `#admin` on the site and enter it. The key is forgotten when
+   you close the tab.
+
+## Order desk
+
+For each paid order, the desk shows the shipping address (with a **Copy
+address** button), the customer's email and phone, and each item with an
+**Open on AliExpress** link. To get those links, add `aliexpress` to each
+product in `js/products.js`:
+
+```js
+aliexpress: { url: "https://www.aliexpress.us/item/1234567890.html", option: "Color: Black, 16ft" }
+```
+
+To fulfil an order: open each item's link, pick the option shown, check out
+on AliExpress with the customer's address, then set the step to **Ordered on
+AliExpress** and paste the AliExpress order number. When AliExpress shows a
+tracking number, add it and set the step to **Shipped**. Refunded orders are
+flagged so you don't order them.
+
 Taking real payments: switch `SQUARE_ENVIRONMENT` in `wrangler.toml` to
 `"production"`, run the `secret put` commands again with your **production**
 access token and location ID, and create the same webhook subscription under
@@ -96,7 +127,8 @@ access token and location ID, and create the same webhook subscription under
 | `TAX_PERCENTAGE` | `wrangler.toml` | Sales tax added to every item (4 = NY State). Keep in sync with `TAX_PERCENT` in `js/main.js` |
 | `TAX_NAME` | `wrangler.toml` | How the tax is labeled on Square's page and receipt |
 | `SHIPPING_FEE_CENTS` | optional var | Flat shipping fee, e.g. `599` for $5.99. Unset = free shipping |
-| `ORDERS` | KV storage | Each order's payment status |
+| `ADMIN_KEY` | secret | Opens the order desk (`#admin`) |
+| `ORDERS` | KV storage | Each order's payment status, items, shipping address and order-desk progress |
 
 Catalog items: add `squareVariationId` to a product in `js/products.js` and
 checkout will use Square's price for it. `TAX_PERCENTAGE` still applies on top,

@@ -1,13 +1,18 @@
 import products from "../../js/products.js";
 
-// Turns a cart from the site into a Square-hosted checkout page, and keeps
-// track of whether each order was actually paid.
+// Turns a cart from the site into a Square-hosted checkout page, keeps
+// track of whether each order was actually paid, and runs the private order
+// desk (#admin on the site) used to place each paid order on AliExpress.
 // Prices always come from js/products.js here on the server, never from
 // the browser, so a shopper can't change what they pay.
 
 const MAX_LINES = 50;
 const MAX_QUANTITY = 99;
 const MAX_STATUS_IDS = 50;
+const MAX_FIELD_LENGTH = 200;
+
+// Where a paid order is in being sent to the customer
+const FULFILLMENT_STEPS = ["to_order", "ordered", "shipped"];
 
 // Order statuses, in the order they can happen. A later status never goes
 // back to an earlier one, so a late or repeated webhook can't undo a refund.
@@ -28,6 +33,10 @@ export default {
 
         if (request.method === "OPTIONS") {
             return new Response(null, { status: 204, headers: cors });
+        }
+
+        if (url.pathname.startsWith("/admin/")) {
+            return handleAdmin(request, url, env, cors);
         }
 
         const isCheckout = request.method === "POST" && url.pathname === "/checkout";
@@ -85,6 +94,13 @@ async function handleCheckout(request, env, cors) {
         status: "awaiting_payment",
         squareOrderId: result.squareOrderId,
         total: result.total,
+        email: email,
+        items: cart.lines.map(({ product, quantity }) => ({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: quantity
+        })),
         createdAt: new Date().toISOString()
     });
     if (result.squareOrderId) {
@@ -192,6 +208,7 @@ async function createPaymentLink(env, lines, email, orderId) {
     };
 }
 
+// Sends payload as a POST, or makes a GET when there's no payload
 function squareFetch(env, path, payload) {
     const host = env.SQUARE_ENVIRONMENT === "production"
         ? "https://connect.squareup.com"
@@ -205,11 +222,9 @@ function squareFetch(env, path, payload) {
         headers["Square-Version"] = env.SQUARE_VERSION;
     }
 
-    return fetch(host + path, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload)
-    });
+    return fetch(host + path, payload
+        ? { method: "POST", headers: headers, body: JSON.stringify(payload) }
+        : { headers: headers });
 }
 
 /* ------------------------- */
@@ -241,8 +256,13 @@ async function handleWebhook(request, env) {
     const update = statusFromEvent(event);
     if (update) {
         const orderId = await env.ORDERS.get("square-order:" + update.squareOrderId);
-        if (orderId) {
-            await updateOrderStatus(env, orderId, update.status);
+        const order = orderId ? await updateOrderStatus(env, orderId, update.status) : null;
+
+        // A newly paid order goes on the order desk with its shipping details
+        if (order && order.status === "paid" && !order.shipping) {
+            order.shipping = await fetchShipping(env, order.squareOrderId, update.payment);
+            order.fulfillment = order.fulfillment || "to_order";
+            await saveOrder(env, order);
         }
     }
 
@@ -257,7 +277,9 @@ function statusFromEvent(event) {
     if (event?.type === "payment.created" || event?.type === "payment.updated") {
         const payment = object?.payment;
         const status = { COMPLETED: "paid", FAILED: "payment_failed", CANCELED: "payment_failed" }[payment?.status];
-        return status && payment.order_id ? { squareOrderId: payment.order_id, status: status } : null;
+        return status && payment.order_id
+            ? { squareOrderId: payment.order_id, status: status, payment: payment }
+            : null;
     }
 
     if (event?.type === "refund.created" || event?.type === "refund.updated") {
@@ -289,15 +311,50 @@ async function isValidSignature(env, rawBody, signature) {
         crypto.subtle.timingSafeEqual(expected, received);
 }
 
+// Returns the order, changed or not, or null if we don't know it
 async function updateOrderStatus(env, orderId, status) {
     const order = await loadOrder(env, orderId);
     if (!order || STATUS_RANK[status] <= STATUS_RANK[order.status]) {
-        return;
+        return order;
     }
 
     order.status = status;
     order.updatedAt = new Date().toISOString();
     await saveOrder(env, order);
+    return order;
+}
+
+// The shopper types their shipping address on Square's page, so it comes
+// from Square's copy of the order. Returns null if Square can't be reached;
+// the order desk tries again when it's opened.
+async function fetchShipping(env, squareOrderId, payment) {
+    const response = await squareFetch(env, "/v2/orders/" + encodeURIComponent(squareOrderId));
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.order) {
+        console.error("Square order lookup failed", response.status, JSON.stringify(data.errors || data));
+        return null;
+    }
+
+    const recipient = data.order.fulfillments
+        ?.find(fulfillment => fulfillment.type === "SHIPMENT")
+        ?.shipment_details?.recipient || {};
+    const address = recipient.address || payment?.shipping_address || null;
+    const nameFromAddress = [address?.first_name, address?.last_name].filter(Boolean).join(" ");
+
+    return {
+        name: recipient.display_name?.trim() || nameFromAddress || null,
+        email: recipient.email_address || payment?.buyer_email_address || null,
+        phone: recipient.phone_number || null,
+        address: address ? {
+            line1: address.address_line_1 || "",
+            line2: address.address_line_2 || "",
+            city: address.locality || "",
+            state: address.administrative_district_level_1 || "",
+            postalCode: address.postal_code || "",
+            country: address.country || ""
+        } : null
+    };
 }
 
 // Only the status is shared: an order number alone doesn't reveal what was
@@ -332,6 +389,106 @@ function saveOrder(env, order) {
 }
 
 /* ------------------------- */
+/*        order desk         */
+/* ------------------------- */
+
+// Private endpoints for the #admin page. They return customers' names and
+// addresses, so every request must carry the ADMIN_KEY secret.
+async function handleAdmin(request, url, env, cors) {
+    if (!env.ADMIN_KEY || !env.ORDERS) {
+        return json({ error: "The order desk isn't set up yet." }, 503, cors);
+    }
+    if (!cors["Access-Control-Allow-Origin"] || !isAdmin(request, env)) {
+        return json({ error: "That admin key isn't right." }, 401, cors);
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/orders") {
+        return json({ orders: await listPaidOrders(env) }, 200, cors);
+    }
+
+    const match = url.pathname.match(/^\/admin\/orders\/(UNCO-[A-Z0-9]{1,20})$/);
+    if (request.method === "POST" && match) {
+        return updateFulfillment(request, env, cors, match[1]);
+    }
+
+    return json({ error: "Not found." }, 404, cors);
+}
+
+function isAdmin(request, env) {
+    const encoder = new TextEncoder();
+    const expected = encoder.encode("Bearer " + env.ADMIN_KEY);
+    const received = encoder.encode(request.headers.get("Authorization") || "");
+
+    return expected.byteLength === received.byteLength &&
+        crypto.subtle.timingSafeEqual(expected, received);
+}
+
+// Unpaid orders are abandoned checkouts, so only paid and refunded ones are
+// listed, newest first. Fine for hundreds of orders; past that, this should
+// move to a database (Cloudflare D1) that can sort and page.
+async function listPaidOrders(env) {
+    const keys = [];
+    let cursor;
+    do {
+        const page = await env.ORDERS.list({ prefix: "order:", cursor: cursor });
+        keys.push(...page.keys.map(key => key.name));
+        cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+
+    const orders = (await Promise.all(keys.map(key => env.ORDERS.get(key, "json"))))
+        .filter(order => order && (order.status === "paid" || order.status === "refunded"));
+    orders.forEach(order => {
+        order.fulfillment = order.fulfillment || "to_order";
+    });
+
+    // Retry Square for any paid order whose address didn't arrive
+    await Promise.all(orders
+        .filter(order => order.status === "paid" && !order.shipping)
+        .map(async order => {
+            order.shipping = await fetchShipping(env, order.squareOrderId, null);
+            order.fulfillment = order.fulfillment || "to_order";
+            if (order.shipping) {
+                await saveOrder(env, order);
+            }
+        }));
+
+    return orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+async function updateFulfillment(request, env, cors, orderId) {
+    let body;
+    try {
+        body = await request.json();
+    } catch (error) {
+        return json({ error: "The request wasn't valid JSON." }, 400, cors);
+    }
+
+    const order = await loadOrder(env, orderId);
+    if (!order || order.status === "awaiting_payment") {
+        return json({ error: "There's no paid order with that number." }, 404, cors);
+    }
+
+    if (!FULFILLMENT_STEPS.includes(body.fulfillment)) {
+        return json({ error: "Unknown order step." }, 400, cors);
+    }
+
+    const fields = ["supplierOrderNumber", "carrier", "trackingNumber", "note"];
+    for (const field of fields) {
+        const value = body[field] ?? "";
+        if (typeof value !== "string" || value.length > MAX_FIELD_LENGTH) {
+            return json({ error: "One of the fields is too long." }, 400, cors);
+        }
+        order[field] = value.trim();
+    }
+
+    order.fulfillment = body.fulfillment;
+    order.updatedAt = new Date().toISOString();
+    await saveOrder(env, order);
+
+    return json({ order: order }, 200, cors);
+}
+
+/* ------------------------- */
 /*          helpers          */
 /* ------------------------- */
 
@@ -340,7 +497,7 @@ function corsHeaders(request, env) {
     const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
     const headers = {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Vary": "Origin"
     };
 

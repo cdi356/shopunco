@@ -16,3 +16,7 @@ SITE_URL=http://localhost:8080
 # On Cloudflare, use the signature key Square shows for your subscription.
 SQUARE_WEBHOOK_SIGNATURE_KEY=local-test-signature-key
 SQUARE_WEBHOOK_URL=http://localhost:8787/square/webhook
+
+# Opens the order desk (#admin on the site). Use a long random value, e.g.
+# from a password manager. On Cloudflare: npx wrangler secret put ADMIN_KEY
+ADMIN_KEY=paste-a-long-random-key-here
