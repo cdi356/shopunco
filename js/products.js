@@ -10,160 +10,124 @@
 //   worker/README.md for how to find it); sku is CJ's variant SKU, kept for
 //   reference. Products without cj.vid are ordered by hand, e.g.
 //   cj: { vid: "92511400-C758-4474-93CA-66D442F5F787", sku: "CJJJ1234567-Black-16ft" }
+// - category: which seasonal collection the product belongs to (see
+//   seasons/ on the product-research branch): "warm-easy", "easy-home",
+//   "easy-garden" or "easy-pets".
+//
+// The first 8 products show on the home page, so keep the current season's
+// heroes at the top.
 const products = [
     {
         id: 0,
-        name: "Classic Hoodie",
-        price: 49.99,
-        image: "images/hoodie.png",
-        category: "top"
+        name: "Wall-Mounted Electric Fireplace (36\")",
+        price: 229.99,
+        image: "images/fireplace.jpg",
+        category: "warm-easy",
+        cj: { vid: "1892086152427520003", sku: "CJFU229555003CX" }
     },
     {
         id: 1,
-        name: "Sticker Pack",
-        price: 7.99,
-        image: "images/stickers.png",
-        category: "top"
+        name: "Heated Scarf, 3 Heat Settings",
+        price: 54.99,
+        image: "images/heated-neck-wrap.jpg",
+        category: "warm-easy",
+        cj: { vid: "1991094654539063298", sku: "CJWJ26076870001" }
     },
     {
         id: 2,
-        name: "LED Strip Lights (16ft)",
-        price: 19.99,
-        image: "images/led-strip.png",
-        category: "top"
+        name: "Wearable Heated Shawl",
+        price: 79.99,
+        image: "images/heated-shawl.jpg",
+        category: "warm-easy",
+        cj: { vid: "1871464783842676738", sku: "CJWJ225235001AZ" }
     },
     {
         id: 3,
-        name: "Wireless Earbuds",
-        price: 34.99,
-        image: "images/earbuds.png",
-        category: "top"
+        name: "Rolling Over-Bed Table, Adjustable Height",
+        price: 99.99,
+        image: "images/overbed-table.jpg",
+        category: "easy-home",
+        cj: { vid: "1873987701572263937", sku: "CJJT225784901AZ" }
     },
     {
         id: 4,
-        name: "Magnetic Phone Mount",
-        price: 12.49,
-        image: "images/phone-mount.png",
-        category: "top"
+        name: "Contour Foam Pillow",
+        price: 59.99,
+        image: "images/neck-pillow.jpg",
+        category: "warm-easy",
+        cj: { vid: "1873635761382158339", sku: "CJJT225708402BY" }
     },
     {
         id: 5,
-        name: "Mini Projector",
-        price: 89.99,
-        image: "images/projector.png",
-        category: "top"
+        name: "Heated Pet Pad",
+        price: 49.99,
+        image: "images/pet-heating-pad.jpg",
+        category: "easy-pets",
+        cj: { vid: "1879735114955853826", sku: "CJPM227205101AZ" }
     },
     {
         id: 6,
-        name: "Sunset Lamp",
-        price: 24.99,
-        image: "images/sunset-lamp.png",
-        category: "top"
+        name: "Outdoor Step Handrail (4–5 Steps)",
+        price: 79.99,
+        image: "images/step-handrail.jpg",
+        category: "easy-home",
+        cj: { vid: "1953076890508840961", sku: "CJJT244959901AZ" }
     },
     {
         id: 7,
-        name: "Silicone Phone Case",
-        price: 9.99,
-        image: "images/phone-case.png",
-        category: "top"
+        name: "Folding Wooden Pet Stairs",
+        price: 69.99,
+        image: "images/pet-stairs.jpg",
+        category: "easy-pets",
+        cj: { vid: "2036322004229218305", sku: "CJYL28016510001" }
     },
     {
         id: 8,
-        name: "Portable Blender",
-        price: 29.99,
-        image: "images/blender.png",
-        category: "top"
+        name: "Linen Throw Pillow Covers (Set of 2)",
+        price: 34.99,
+        image: "images/pillow-covers.jpg",
+        category: "warm-easy",
+        cj: { vid: "1950800714679029761", sku: "CJJT244430101AZ" }
     },
     {
         id: 9,
-        name: "Desk Organizer",
-        price: 16.99,
-        image: "images/desk-organizer.png",
-        category: "top"
+        name: "Wrap, Foil & Paper Towel Dispenser",
+        price: 54.99,
+        image: "images/wrap-dispenser.jpg",
+        category: "easy-home",
+        cj: { vid: "1892400958048169985", sku: "CJCF229627801AZ" }
     },
     {
         id: 10,
-        name: "Bucket Hat",
-        price: 14.99,
-        image: "images/bucket-hat.png",
-        category: "top"
+        name: "Hands-Free Reading Magnifier (5×)",
+        price: 39.99,
+        image: "images/stand-magnifier.jpg",
+        category: "easy-home",
+        cj: { vid: "1797138395420962816", sku: "CJYD205179401AZ" }
     },
     {
         id: 11,
-        name: "Insulated Water Bottle",
-        price: 21.99,
-        image: "images/water-bottle.png",
-        category: "top"
+        name: "Garden Kneeler & Seat",
+        price: 64.99,
+        image: "images/garden-kneeler.jpg",
+        category: "easy-garden",
+        cj: { vid: "1956532057071439873", sku: "CJJT245765301AZ" }
     },
     {
         id: 12,
-        name: "Galaxy Star Projector",
-        price: 32.99,
-        image: "images/star-projector.png",
-        category: "top"
+        name: "Self-Watering Raised Garden Bed",
+        price: 64.99,
+        image: "images/raised-garden-bed.jpg",
+        category: "easy-garden",
+        cj: { vid: "1955104915792494593", sku: "CJYL245365101AZ" }
     },
     {
         id: 13,
-        name: "Mechanical Keyboard",
-        price: 59.99,
-        image: "images/keyboard.png",
-        category: "top"
-    },
-    {
-        id: 14,
-        name: "Cable Organizer Clips",
-        price: 6.49,
-        image: "images/cable-clips.png",
-        category: "top"
-    },
-    {
-        id: 15,
-        name: "Canvas Tote Bag",
-        price: 11.99,
-        image: "images/tote-bag.png",
-        category: "top"
-    },
-    {
-        id: 16,
-        name: "Fidget Cube",
-        price: 8.99,
-        image: "images/fidget-cube.png",
-        category: "top"
-    },
-    {
-        id: 17,
-        name: "Ring Light with Stand",
-        price: 27.99,
-        image: "images/ring-light.png",
-        category: "top"
-    },
-    {
-        id: 18,
-        name: "Smart Watch Band",
-        price: 13.99,
-        image: "images/watch-band.png",
-        category: "top"
-    },
-    {
-        id: 19,
-        name: "Aroma Diffuser",
-        price: 22.99,
-        image: "images/diffuser.png",
-        category: "top"
-    },
-    {
-        id: 20,
-        name: "Crew Socks (3 Pack)",
-        price: 10.99,
-        image: "images/socks.png",
-        category: "top"
-    },
-    {
-        id: 21,
-        name: "Bluetooth Speaker",
-        price: 39.99,
-        image: "images/speaker.png",
-        category: "top"
+        name: "Solar Bird Bath with Lantern",
+        price: 74.99,
+        image: "images/solar-bird-bath.jpg",
+        category: "easy-garden",
+        cj: { vid: "1889520200887431169", sku: "CJTY228944101AZ" }
     }
 ];
 
