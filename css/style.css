@@ -1441,3 +1441,31 @@ body {
     color: #555;
     font-size: 14px;
 }
+
+/* ------------------------- */
+/*         text size         */
+/* ------------------------- */
+
+/* Set on <html> by js/text-size.js. Sizes in this file are in px, so the
+   page is scaled as a whole: text, buttons and spacing grow together. */
+[data-text-size="larger"] .header,
+[data-text-size="larger"] .content,
+[data-text-size="larger"] .footer {
+    zoom: 1.15;
+}
+
+[data-text-size="largest"] .header,
+[data-text-size="largest"] .content,
+[data-text-size="largest"] .footer {
+    zoom: 1.3;
+}
+
+.text-size-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+}
+
+.sign-in + .sign-in {
+    margin-top: 24px;
+}
