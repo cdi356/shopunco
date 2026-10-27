@@ -77,7 +77,25 @@ function startSession(email) {
     }
 }
 
+// Labels for the statuses the checkout Worker reports
+const ORDER_STATUS_LABELS = {
+    awaiting_payment: "Awaiting payment",
+    payment_failed: "Payment failed",
+    paid: "Paid",
+    refunded: "Refunded"
+};
+
+function randomOrderId() {
+    const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const bytes = crypto.getRandomValues(new Uint8Array(10));
+    return "UNCO-" + Array.from(bytes, b => alphabet[b % alphabet.length]).join("");
+}
+
 const api = {
+    isValidEmail(rawEmail) {
+        return isValidEmail(normalizeEmail(rawEmail));
+    },
+
     // Step 1 of signing in or signing up: tells the page what to ask for next
     async startSignIn(rawEmail) {
         const email = normalizeEmail(rawEmail);
@@ -207,8 +225,9 @@ const api = {
         return { ok: true };
     },
 
-    // Records an order under an email, whether or not that email has an account
-    async placeOrder(rawEmail, items) {
+    // Records an order under an email, whether or not that email has an account.
+    // With Square checkout, the Worker supplies the order number and total.
+    async placeOrder(rawEmail, items, orderId, totalCents) {
         const email = normalizeEmail(rawEmail);
         if (!isValidEmail(email)) {
             return { ok: false, error: "Please enter a valid email address." };
@@ -219,13 +238,15 @@ const api = {
             return { id: product.id, name: product.name, price: product.price, quantity: item.quantity };
         });
 
+        const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
         const order = {
-            id: "UNCO-" + Date.now().toString(36).toUpperCase(),
+            id: orderId || randomOrderId(),
             email: email,
             date: new Date().toISOString(),
             items: lines,
-            subtotal: lines.reduce((sum, line) => sum + line.price * line.quantity, 0),
-            status: "Awaiting payment"
+            subtotal: subtotal,
+            total: Number.isInteger(totalCents) ? totalCents / 100 : subtotal + calculateTax(subtotal),
+            status: "awaiting_payment"
         };
 
         const db = loadDb();
@@ -237,25 +258,41 @@ const api = {
 
     // Real: asks the checkout Worker for a Square checkout page. Only ids and
     // quantities are sent; the Worker looks up the prices itself.
-    async createCheckout(email, items, orderId) {
+    async createCheckout(email, items) {
         try {
             const response = await fetch(CHECKOUT_API_URL + "/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     email: email,
-                    orderId: orderId,
                     items: items.map(item => ({ id: item.id, quantity: item.quantity }))
                 })
             });
             const data = await response.json().catch(() => ({}));
 
-            if (!response.ok || !data.checkoutUrl) {
+            if (!response.ok || !data.checkoutUrl || !data.orderId) {
                 return { ok: false, error: data.error || "We couldn't start checkout. Please try again." };
             }
-            return { ok: true, url: data.checkoutUrl };
+            return { ok: true, url: data.checkoutUrl, orderId: data.orderId, total: data.total };
         } catch (error) {
             return { ok: false, error: "We couldn't reach checkout. Please check your connection and try again." };
+        }
+    },
+
+    // Real: asks the checkout Worker which orders Square has confirmed as paid.
+    // Returns { orderId: status }; orders it can't check are left out.
+    async getOrderStatuses(orderIds) {
+        if (!CHECKOUT_API_URL || orderIds.length === 0) {
+            return {};
+        }
+
+        try {
+            const response = await fetch(CHECKOUT_API_URL + "/orders/status?ids=" +
+                orderIds.map(encodeURIComponent).join(","));
+            const data = await response.json().catch(() => ({}));
+            return response.ok && data.statuses ? data.statuses : {};
+        } catch (error) {
+            return {};
         }
     },
 
@@ -266,8 +303,15 @@ const api = {
             return [];
         }
 
-        return loadDb().orders
+        const orders = loadDb().orders
             .filter(order => order.email === session.email)
             .sort((a, b) => b.date.localeCompare(a.date));
+
+        // Square's confirmation, kept by the Worker, wins over what this browser saved
+        const statuses = await this.getOrderStatuses(orders.map(order => order.id));
+        return orders.map(order => {
+            const status = statuses[order.id] || order.status;
+            return { ...order, status: status, statusLabel: ORDER_STATUS_LABELS[status] || status };
+        });
     }
 };

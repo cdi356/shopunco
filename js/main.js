@@ -18,8 +18,8 @@ const pages = {
             </div>
             <div class="perk">
                 <span class="material-symbols-rounded" aria-hidden="true">local_shipping</span>
-                <h3>Honest shipping times</h3>
-                <p>You'll know when your order will arrive before you buy.</p>
+                <h3>Free shipping</h3>
+                <p>Every order ships free, and you'll know when it will arrive before you buy.</p>
             </div>
             <div class="perk">
                 <span class="material-symbols-rounded" aria-hidden="true">support_agent</span>
@@ -106,10 +106,10 @@ const pages = {
         <h1 class="page-header">Shipping Policy</h1>
         <div class="page-text">
             ${placeholderNote}
-            <p>This page will explain:</p>
+            <p>Shipping is free on every order.</p>
+            <p>This page will also explain:</p>
             <ul>
                 <li>How long orders take to arrive, by region</li>
-                <li>Shipping costs and any free-shipping threshold</li>
                 <li>How and when you'll receive tracking information</li>
                 <li>What to do if a package is late or lost</li>
             </ul>
@@ -168,6 +168,15 @@ const pageSetup = {
 
 const CART_KEY = "unco-cart";
 const PENDING_ORDER_KEY = "unco-pending-order";
+
+// New York State sales tax, shown in the cart. Square charges it at checkout
+// from TAX_PERCENTAGE in worker/wrangler.toml; keep the two in sync.
+const TAX_PERCENT = 4;
+
+// How long the thank-you page waits for Square to confirm a payment
+const STATUS_CHECKS = 10;
+const STATUS_CHECK_DELAY_MS = 3000;
+
 const cart = loadCart();
 let searchQuery = "";
 
@@ -259,6 +268,12 @@ function formatPrice(amount) {
     return "$" + amount.toFixed(2);
 }
 
+// Rounded to the cent the same way Square rounds it
+function calculateTax(subtotal) {
+    const cents = Math.round(subtotal * 100);
+    return Math.round(cents * TAX_PERCENT / 100) / 100;
+}
+
 function formatDate(iso) {
     return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -343,6 +358,7 @@ function renderCart() {
         const product = products.find(p => p.id === item.id);
         return sum + product.price * item.quantity;
     }, 0);
+    const tax = calculateTax(subtotal);
 
     const rows = cart.map(item => {
         const product = products.find(p => p.id === item.id);
@@ -377,21 +393,21 @@ function renderCart() {
             </div>
             <div class="summary-row">
                 <span>Shipping</span>
-                <span class="summary-pending">Calculated at checkout</span>
+                <span class="summary-free">Free</span>
             </div>
             <div class="summary-row">
-                <span>Tax</span>
-                <span class="summary-pending">Calculated at checkout</span>
+                <span>NY State sales tax (${TAX_PERCENT}%)</span>
+                <span>${formatPrice(tax)}</span>
             </div>
             <div class="summary-row summary-total">
-                <span>Estimated Total</span>
-                <span>${formatPrice(subtotal)}</span>
+                <span>Total</span>
+                <span>${formatPrice(subtotal + tax)}</span>
             </div>
             <div class="checkout-box" id="checkout-box">
                 <button class="checkout" type="button" data-action="checkout">Proceed to Checkout</button>
                 <p class="form-error" id="checkout-error" role="alert"></p>
             </div>
-            <p class="summary-note">Shipping and tax are added on the secure checkout page.</p>
+            <p class="summary-note">Free shipping on every order. You'll pay on Square's secure checkout page.</p>
         </aside>
     `;
 }
@@ -429,19 +445,17 @@ async function finishCheckout(email) {
     const button = document.querySelector("#checkout-box .checkout");
 
     errorBox.textContent = "";
-    const result = await api.placeOrder(email, cart);
-    if (!result.ok) {
-        errorBox.textContent = result.error;
+    if (!api.isValidEmail(email)) {
+        errorBox.textContent = "Please enter a valid email address.";
         return;
     }
-
-    const order = result.order;
 
     if (CHECKOUT_API_URL) {
         button.disabled = true;
         button.textContent = "Opening secure checkout...";
 
-        const checkout = await api.createCheckout(order.email, cart, order.id);
+        // The Worker gives the order its number, so it's saved here afterwards
+        const checkout = await api.createCheckout(email, cart);
         if (!checkout.ok) {
             errorBox.textContent = checkout.error;
             button.disabled = false;
@@ -449,15 +463,25 @@ async function finishCheckout(email) {
             return;
         }
 
+        await api.placeOrder(email, cart, checkout.orderId, checkout.total);
+
         // The cart is emptied when Square sends the shopper back to #thank-you
         try {
-            localStorage.setItem(PENDING_ORDER_KEY, order.id);
+            localStorage.setItem(PENDING_ORDER_KEY, checkout.orderId);
         } catch (error) {
             // Storage unavailable; the cart just won't empty itself afterwards
         }
         location.href = checkout.url;
         return;
     }
+
+    const result = await api.placeOrder(email, cart);
+    if (!result.ok) {
+        errorBox.textContent = result.error;
+        return;
+    }
+
+    const order = result.order;
 
     const session = await api.getSession();
 
@@ -506,10 +530,49 @@ function renderThankYou() {
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
             <h2>Thank you for your order!</h2>
             ${orderId ? `<p>Your order number is <strong>${escapeHtml(orderId)}</strong>.</p>` : ""}
+            <p class="payment-status" id="payment-status" role="status"></p>
             <p>Square will email your receipt. We'll email you again when your order ships.</p>
             <a class="button-link" href="#home">Back to the shop</a>
         </div>
     `;
+
+    if (orderId && CHECKOUT_API_URL) {
+        showPaymentStatus(orderId);
+    }
+}
+
+// Square confirms the payment to our Worker a few seconds after the shopper
+// pays, so the page checks a few times before giving up
+async function showPaymentStatus(orderId) {
+    const box = document.getElementById("payment-status");
+    box.className = "payment-status payment-status-waiting";
+    box.textContent = "Confirming your payment with Square...";
+
+    for (let check = 0; check < STATUS_CHECKS; check++) {
+        const statuses = await api.getOrderStatuses([orderId]);
+        const status = statuses[orderId];
+
+        // The shopper left the page while we were checking
+        if (!document.body.contains(box)) {
+            return;
+        }
+
+        if (status === "paid") {
+            box.className = "payment-status payment-status-paid";
+            box.textContent = "Payment confirmed.";
+            return;
+        }
+        if (status === "payment_failed") {
+            box.className = "payment-status payment-status-problem";
+            box.textContent = "Your payment didn't go through. You haven't been charged. Please place your order again.";
+            return;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, STATUS_CHECK_DELAY_MS));
+    }
+
+    box.className = "payment-status";
+    box.textContent = "Your payment is still being confirmed. Square will email your receipt once it goes through.";
 }
 
 /* ------------------------- */

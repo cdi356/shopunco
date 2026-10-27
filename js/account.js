@@ -96,6 +96,13 @@ function renderSignIn(container) {
     }
 }
 
+function orderStatusClass(status) {
+    if (status === "paid") {
+        return "order-status-paid";
+    }
+    return status === "payment_failed" ? "order-status-problem" : "";
+}
+
 async function renderDashboard(container, session) {
     const orders = await api.getOrders();
     const usesPassword = session.loginMethod === "password";
@@ -107,8 +114,8 @@ async function renderDashboard(container, session) {
                 <div class="order-header">
                     <strong>${order.id}</strong>
                     <span>${formatDate(order.date)}</span>
-                    <span class="order-status">${escapeHtml(order.status)}</span>
-                    <strong>${formatPrice(order.subtotal)}</strong>
+                    <span class="order-status ${orderStatusClass(order.status)}">${escapeHtml(order.statusLabel)}</span>
+                    <strong>${formatPrice(order.total ?? order.subtotal)}</strong>
                 </div>
                 <ul class="order-items">
                     ${order.items.map(line => `<li>${line.quantity} &times; ${line.name}</li>`).join("")}

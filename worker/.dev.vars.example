@@ -11,3 +11,8 @@ SITE_URL=http://localhost:8080
 
 # Optional: a fixed sales tax rate for items not in your Square catalog
 # TAX_PERCENTAGE=8.25
+
+# Local-only webhook settings for simulating Square's payment notifications.
+# On Cloudflare, use the signature key Square shows for your subscription.
+SQUARE_WEBHOOK_SIGNATURE_KEY=local-test-signature-key
+SQUARE_WEBHOOK_URL=http://localhost:8787/square/webhook

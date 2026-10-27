@@ -2,10 +2,25 @@ name = "unco-checkout"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
-# Settings that aren't secret. The Square access token is NOT here:
-# locally it goes in worker/.dev.vars, and on Cloudflare it's set with
-# `npx wrangler secret put SQUARE_ACCESS_TOKEN`.
+# Settings that aren't secret. The Square access token and webhook
+# signature key are NOT here: locally they go in worker/.dev.vars, and on
+# Cloudflare they're set with `npx wrangler secret put <NAME>`.
 [vars]
 SQUARE_ENVIRONMENT = "sandbox"
 ALLOWED_ORIGINS = "https://shopunco.com,https://www.shopunco.com,http://localhost:8080"
 SITE_URL = "https://shopunco.com"
+
+# New York State sales tax, added to every item at checkout. Shipping is
+# free, so there's no SHIPPING_FEE_CENTS. Keep TAX_PERCENTAGE in sync with
+# TAX_PERCENT in js/main.js, which shows the same tax in the cart.
+TAX_PERCENTAGE = "4"
+TAX_NAME = "NY State sales tax"
+
+# After deploying, set this to the exact URL of the webhook subscription in
+# Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
+# SQUARE_WEBHOOK_URL = ""
+
+# Where each order's payment status is kept. Wrangler creates this storage
+# on Cloudflare the first time you deploy.
+[[kv_namespaces]]
+binding = "ORDERS"

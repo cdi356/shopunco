@@ -410,11 +410,9 @@ input[type="search"] {
     justify-content: space-between;
 }
 
-.summary-pending {
-    color: #888;
-    font-size: 14px;
-    font-style: italic;
-    text-align: right;
+.summary-free {
+    color: #1b6e3c;
+    font-weight: bold;
 }
 
 .summary-total {
@@ -868,6 +866,16 @@ body {
     border-radius: 999px;
 }
 
+.order-status-paid {
+    color: #1b6e3c;
+    background: #e3f4e8;
+}
+
+.order-status-problem {
+    color: #8a1c1c;
+    background: #fbe5e5;
+}
+
 .order-items {
     margin-top: 8px;
     padding-left: 20px;
@@ -915,6 +923,32 @@ body {
     width: auto;
     font-size: 48px !important;
     color: #1b6e3c;
+}
+
+.payment-status:empty {
+    display: none;
+}
+
+.payment-status {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #f2f2f2;
+}
+
+.payment-status-waiting {
+    color: #6b4e00;
+    background: #fff6dc;
+}
+
+.payment-status-paid {
+    color: #1b6e3c;
+    font-weight: bold;
+    background: #e3f4e8;
+}
+
+.payment-status-problem {
+    color: #8a1c1c;
+    background: #fbe5e5;
 }
 
 /* ------------------------- */
