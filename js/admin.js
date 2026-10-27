@@ -2,8 +2,10 @@
 /*        order desk         */
 /* ------------------------- */
 
-// The private #admin page: every paid order with its shipping address and
-// AliExpress links, so you can place it on AliExpress and record tracking.
+// The private #admin page: every paid order with its shipping address.
+// Paid orders go to CJdropshipping automatically; the desk shows the CJ
+// order and any problem, can send an order to CJ again, and has AliExpress
+// links for ordering by hand when CJ can't take it.
 // It isn't linked anywhere. The orders come from the checkout Worker, which
 // only hands them over with the ADMIN_KEY secret; the key is kept for this
 // browser tab only.
@@ -12,7 +14,7 @@ const ADMIN_KEY_STORAGE = "unco-admin-key";
 
 const FULFILLMENT_LABELS = {
     to_order: "To order",
-    ordered: "Ordered on AliExpress",
+    ordered: "Ordered",
     shipped: "Shipped"
 };
 
@@ -23,6 +25,19 @@ const deskFilters = [
     { id: "refunded", label: "Refunded", matches: order => order.status === "refunded" },
     { id: "all", label: "All", matches: () => true }
 ];
+
+// CJ's order statuses (see cj.js) that still need you to pay in My CJ
+const CJ_UNPAID = ["CREATED", "IN_CART", "UNPAID"];
+
+const CJ_STATUS_LABELS = {
+    CREATED: "Created, not paid",
+    IN_CART: "In cart, not paid",
+    UNPAID: "Not paid",
+    UNSHIPPED: "Paid, being prepared",
+    SHIPPED: "Shipped",
+    DELIVERED: "Delivered",
+    CANCELLED: "Cancelled"
+};
 
 const desk = {
     orders: [],
@@ -135,13 +150,15 @@ function renderDeskOrder(order) {
         ? `<li class="form-hint">Item list missing. Check the order in your Square Dashboard.</li>`
         : items.map(item => {
             const link = aliexpressFor(item.id);
+            const cjVid = cjVidFor(item.id);
             return `
                 <li class="desk-item">
                     <span><strong>${item.quantity} &times;</strong> ${escapeHtml(item.name)}</span>
+                    ${cjVid ? `<span class="form-hint">CJ variant ${escapeHtml(cjVid)}</span>` : ""}
                     ${link?.option ? `<span class="form-hint">Pick: ${escapeHtml(link.option)}</span>` : ""}
                     ${link?.url
                         ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">Open on AliExpress</a>`
-                        : `<span class="form-hint">No AliExpress link yet. Add one in js/products.js.</span>`}
+                        : cjVid ? "" : `<span class="form-hint">Not on CJ and no AliExpress link yet. Add one in js/products.js.</span>`}
                 </li>
             `;
         }).join("");
@@ -159,8 +176,9 @@ function renderDeskOrder(order) {
                 <strong>${order.total != null ? formatPrice(order.total / 100) : ""}</strong>
             </div>
             ${order.status === "refunded"
-                ? `<p class="demo-note">This order was refunded. Don't order it, and cancel it on AliExpress if you already did.</p>`
+                ? `<p class="demo-note">This order was refunded. Don't order it, and cancel it on CJ or AliExpress if you already did.</p>`
                 : ""}
+            ${renderSupplier(order)}
             <div class="desk-columns">
                 <div>
                     <h3>Ship to</h3>
@@ -178,7 +196,7 @@ function renderDeskOrder(order) {
                     <label>Step
                         <select name="fulfillment">${steps}</select>
                     </label>
-                    <label>AliExpress order number
+                    <label>CJ or AliExpress order number
                         <input type="text" name="supplierOrderNumber" maxlength="200" value="${escapeHtml(order.supplierOrderNumber || "")}">
                     </label>
                     <label>Carrier
@@ -197,6 +215,57 @@ function renderDeskOrder(order) {
             </form>
         </li>
     `;
+}
+
+// The CJ part of an order: its CJ order, or why it isn't on CJ, and the
+// button that sends it there again
+function renderSupplier(order) {
+    const parts = [];
+
+    if (order.supplierError) {
+        parts.push(`<p class="desk-alert" role="alert">${escapeHtml(order.supplierError)}</p>`);
+    }
+
+    if (order.supplier === "cj" && order.supplierOrderNumber) {
+        const status = CJ_STATUS_LABELS[order.cjStatus] || order.cjStatus || "";
+        parts.push(`
+            <p class="desk-supplier">
+                Sent to CJ${order.cjSandbox ? " (sandbox test, never shipped)" : ""}:
+                order <strong>${escapeHtml(order.supplierOrderNumber)}</strong>
+                ${status ? ` &middot; ${escapeHtml(status)}` : ""}
+                <br><span class="form-hint">Find it in My CJ under Orders by this number or ${escapeHtml(order.id)}.</span>
+            </p>
+        `);
+        if (CJ_UNPAID.includes(order.cjStatus) && !order.cjSandbox) {
+            parts.push(`<p class="demo-note">CJ won't ship this until you pay for it in My CJ.</p>`);
+        }
+    }
+
+    if (order.cjDryRun) {
+        parts.push(`
+            <details class="desk-dry-run">
+                <summary>Order that would go to CJ (dry run)</summary>
+                <pre>${escapeHtml(JSON.stringify(order.cjDryRun.request, null, 2))}</pre>
+            </details>
+        `);
+    }
+
+    const canSend = order.status === "paid" && order.fulfillment === "to_order"
+        && !(order.supplier === "cj" && order.supplierOrderNumber);
+    if (canSend) {
+        parts.push(`
+            <div class="desk-send">
+                <button class="button-secondary" type="button" data-action="send-to-cj" data-id="${order.id}">Send to CJ</button>
+                <span class="form-error" role="alert"></span>
+            </div>
+        `);
+    }
+
+    return parts.join("");
+}
+
+function cjVidFor(productId) {
+    return products.find(p => p.id === productId)?.cj?.vid || "";
 }
 
 // Only https links from js/products.js are shown
@@ -279,6 +348,25 @@ document.addEventListener("click", async (event) => {
         setAdminKey(null);
         desk.orders = [];
         renderAdmin();
+    } else if (action === "send-to-cj") {
+        const button = event.target.closest("[data-action]");
+        const errorBox = button.parentElement.querySelector(".form-error");
+        button.disabled = true;
+        button.textContent = "Sending...";
+        errorBox.textContent = "";
+
+        const result = await api.adminSendToCj(getAdminKey(), button.dataset.id);
+        if (!result.ok) {
+            button.disabled = false;
+            button.textContent = "Send to CJ";
+            errorBox.textContent = result.error;
+            return;
+        }
+
+        // Redraw just this order, so it stays in view until Refresh
+        const index = desk.orders.findIndex(order => order.id === result.order.id);
+        desk.orders[index] = result.order;
+        button.closest(".desk-order").outerHTML = renderDeskOrder(result.order);
     } else if (action === "copy-address") {
         const button = event.target.closest("[data-action]");
         const order = desk.orders.find(o => o.id === button.dataset.id);

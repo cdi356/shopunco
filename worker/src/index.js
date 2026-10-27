@@ -1,11 +1,13 @@
 import products from "../../js/products.js";
 import { handleAccounts, addOrderToAccount } from "./accounts.js";
 import { corsHeaders, json, safeEqual } from "./http.js";
+import { sendOrderToCj, checkCjTracking, syncOpenCjOrder, hasCjOrder } from "./cj.js";
 
 // The site's backend. It turns a cart into a Square-hosted checkout page,
 // keeps track of whether each order was actually paid, runs customer
-// accounts (accounts.js), and runs the private order desk (#admin on the
-// site) used to place each paid order on AliExpress.
+// accounts (accounts.js), sends paid orders to CJdropshipping (cj.js), and
+// runs the private order desk (#admin on the site) for anything CJ can't
+// take, which is ordered by hand on AliExpress.
 // Prices always come from js/products.js here on the server, never from
 // the browser, so a shopper can't change what they pay.
 
@@ -17,18 +19,23 @@ const MAX_FIELD_LENGTH = 200;
 // Where a paid order is in being sent to the customer
 const FULFILLMENT_STEPS = ["to_order", "ordered", "shipped"];
 
+// What sending an order to CJ may change. Only these are copied onto the
+// latest saved order, so a refund that arrives meanwhile isn't undone.
+const CJ_FIELDS = ["supplier", "supplierOrderNumber", "fulfillment", "supplierError", "cjMode",
+    "cjStatus", "cjSandbox", "cjOrderedAt", "cjDryRun", "updatedAt"];
+
 // Order statuses, in the order they can happen. A later status never goes
 // back to an earlier one, so a late or repeated webhook can't undo a refund.
 const STATUS_RANK = { awaiting_payment: 0, payment_failed: 1, paid: 2, refunded: 3 };
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
         // Square calls this directly, so it's checked by signature, not CORS
         if (url.pathname === "/square/webhook") {
             return request.method === "POST"
-                ? handleWebhook(request, env)
+                ? handleWebhook(request, env, ctx)
                 : json({ error: "Not found." }, 404, {});
         }
 
@@ -62,6 +69,14 @@ export default {
         return isCheckout
             ? handleCheckout(request, env, cors)
             : handleStatus(url, env, cors);
+    },
+
+    // The cron in wrangler.toml: picks up tracking numbers from CJ
+    async scheduled(event, env, ctx) {
+        if (env.ORDERS) {
+            ctx.waitUntil(checkCjTracking(env, id => loadOrder(env, id), saveOrder)
+                .then(changed => console.log("CJ tracking check: " + changed + " order(s) updated")));
+        }
     }
 };
 
@@ -247,7 +262,7 @@ function squareFetch(env, path, payload) {
 // Square tells us here when a payment goes through, fails or is refunded.
 // Only this endpoint marks orders as paid; the shopper landing on the
 // thank-you page proves nothing on its own.
-async function handleWebhook(request, env) {
+async function handleWebhook(request, env, ctx) {
     if (!env.SQUARE_WEBHOOK_SIGNATURE_KEY || !env.SQUARE_WEBHOOK_URL || !env.ORDERS) {
         return json({ error: "Webhooks aren't set up yet." }, 503, {});
     }
@@ -271,11 +286,17 @@ async function handleWebhook(request, env) {
         const orderId = await env.ORDERS.get("square-order:" + update.squareOrderId);
         const order = orderId ? await updateOrderStatus(env, orderId, update.status) : null;
 
-        // A newly paid order goes on the order desk with its shipping details
+        // A newly paid order goes on the order desk with its shipping
+        // details, and to CJ once the address is in. Square's answer doesn't
+        // wait for CJ.
         if (order && order.status === "paid" && !order.shipping) {
             order.shipping = await fetchShipping(env, order.squareOrderId, update.payment);
             order.fulfillment = order.fulfillment || "to_order";
             await saveOrder(env, order);
+
+            if (order.shipping && order.fulfillment === "to_order" && !hasCjOrder(order)) {
+                ctx.waitUntil(placeCjOrder(env, order.id));
+            }
         }
     }
 
@@ -389,6 +410,37 @@ async function handleStatus(url, env, cors) {
     return json({ statuses: statuses }, 200, cors);
 }
 
+// Sends a saved order to CJ and saves what happened. Returns the order.
+async function placeCjOrder(env, orderId) {
+    const order = await loadOrder(env, orderId);
+    if (!order) {
+        return null;
+    }
+
+    const before = JSON.stringify(order);
+    await sendOrderToCj(env, order);
+    if (JSON.stringify(order) === before) {
+        return order;
+    }
+
+    // CJ can take several seconds, so copy the result onto a fresh copy,
+    // unless another send got the order onto CJ in the meantime
+    const latest = await loadOrder(env, orderId);
+    if (hasCjOrder(latest) && !hasCjOrder(order)) {
+        return latest;
+    }
+    for (const field of CJ_FIELDS) {
+        if (order[field] === undefined) {
+            delete latest[field];
+        } else {
+            latest[field] = order[field];
+        }
+    }
+    await saveOrder(env, latest);
+    await syncOpenCjOrder(env, latest);
+    return latest;
+}
+
 async function loadOrder(env, orderId) {
     return env.ORDERS.get("order:" + orderId, "json");
 }
@@ -418,6 +470,11 @@ async function handleAdmin(request, url, env, cors) {
     const match = url.pathname.match(/^\/admin\/orders\/(UNCO-[A-Z0-9]{1,20})$/);
     if (request.method === "POST" && match) {
         return updateFulfillment(request, env, cors, match[1]);
+    }
+
+    const sendMatch = url.pathname.match(/^\/admin\/orders\/(UNCO-[A-Z0-9]{1,20})\/send-to-cj$/);
+    if (request.method === "POST" && sendMatch) {
+        return resendToCj(env, cors, sendMatch[1]);
     }
 
     return json({ error: "Not found." }, 404, cors);
@@ -476,6 +533,8 @@ async function updateFulfillment(request, env, cors, orderId) {
         return json({ error: "Unknown order step." }, 400, cors);
     }
 
+    const previousNumber = order.supplierOrderNumber;
+    const previousTracking = order.trackingNumber;
     const fields = ["supplierOrderNumber", "carrier", "trackingNumber", "note"];
     for (const field of fields) {
         const value = body[field] ?? "";
@@ -485,9 +544,47 @@ async function updateFulfillment(request, env, cors, orderId) {
         order[field] = value.trim();
     }
 
+    // CJ's tracking link is for CJ's tracking number only
+    if (order.trackingNumber !== previousTracking) {
+        delete order.trackingUrl;
+    }
+    // A different order number means it was placed somewhere else by hand
+    if (order.supplier === "cj" && order.supplierOrderNumber !== previousNumber) {
+        delete order.supplier;
+    }
+    // Ordered or shipped by hand, so CJ's earlier problem no longer matters
+    if (body.fulfillment !== "to_order" && !hasCjOrder(order)) {
+        delete order.supplierError;
+    }
+
     order.fulfillment = body.fulfillment;
     order.updatedAt = new Date().toISOString();
     await saveOrder(env, order);
+    await syncOpenCjOrder(env, order);
 
     return json({ order: order }, 200, cors);
+}
+
+// The desk's "Send to CJ" button: tries the automatic order again
+async function resendToCj(env, cors, orderId) {
+    const order = await loadOrder(env, orderId);
+    if (!order || order.status !== "paid") {
+        return json({ error: "There's no paid order with that number." }, 404, cors);
+    }
+    if (hasCjOrder(order)) {
+        return json({ order: order }, 200, cors);
+    }
+    if (order.fulfillment && order.fulfillment !== "to_order") {
+        return json({ error: "This order is already marked as ordered. Set its step back to \"To order\" first." }, 409, cors);
+    }
+
+    // The address may not have arrived from Square yet
+    if (!order.shipping) {
+        order.shipping = await fetchShipping(env, order.squareOrderId, null);
+        if (order.shipping) {
+            await saveOrder(env, order);
+        }
+    }
+
+    return json({ order: await placeCjOrder(env, orderId) }, 200, cors);
 }

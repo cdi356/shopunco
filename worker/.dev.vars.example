@@ -25,3 +25,9 @@ ADMIN_KEY=paste-a-long-random-key-here
 # sign-in codes) to the Worker's log instead. Never set it on Cloudflare.
 # RESEND_API_KEY=paste-your-resend-api-key-here
 EMAIL_DEV_LOG=true
+
+# CJdropshipping. Without CJ_API_KEY, orders are only built (dry run).
+# On Cloudflare: npx wrangler secret put CJ_API_KEY
+# CJ_API_KEY=paste-your-cj-api-key-here
+# Override wrangler.toml locally, e.g. to try CJ's sandbox:
+# CJ_ORDER_MODE=sandbox
