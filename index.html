@@ -14,9 +14,33 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap" rel="stylesheet">
 
+    <script src="js/coming-soon.js"></script>
+
 </head>
 
 <body>
+
+<div class="coming-soon" id="coming-soon">
+    <div class="coming-soon-content">
+        <p class="coming-soon-logo">unco</p>
+        <svg class="coming-soon-smile" viewBox="0 0 240 60" aria-hidden="true">
+            <circle cx="16" cy="18" r="9"/>
+            <circle cx="224" cy="18" r="9"/>
+            <path d="M30 14 Q120 78 210 14"/>
+        </svg>
+        <p class="coming-soon-badge">Coming soon</p>
+        <p class="coming-soon-message">We're putting the finishing touches on our shop. Check back soon!</p>
+    </div>
+
+    <form class="unlock" id="unlock-form" hidden novalidate>
+        <label for="unlock-password">Password</label>
+        <div class="unlock-row">
+            <input id="unlock-password" type="password" autocomplete="off">
+            <button type="submit">Unlock</button>
+        </div>
+        <p class="unlock-error" id="unlock-error" role="alert"></p>
+    </form>
+</div>
 
 <header class="header">
     <h1 class="name"><a href="#home">unco</a></h1>
