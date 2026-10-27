@@ -5,6 +5,11 @@
 //   (#admin). url is the AliExpress product page; option is exactly what to
 //   pick there, e.g.
 //   aliexpress: { url: "https://www.aliexpress.us/item/1234567890.html", option: "Color: Black, 16ft" }
+// - cj: the CJdropshipping variant to send paid orders to automatically.
+//   vid is CJ's variant id for exactly the option you sell (see "CJ" in
+//   worker/README.md for how to find it); sku is CJ's variant SKU, kept for
+//   reference. Products without cj.vid are ordered by hand, e.g.
+//   cj: { vid: "92511400-C758-4474-93CA-66D442F5F787", sku: "CJJJ1234567-Black-16ft" }
 const products = [
     {
         id: 0,

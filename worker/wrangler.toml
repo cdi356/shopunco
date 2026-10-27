@@ -3,8 +3,9 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 
 # Settings that aren't secret. The Square access token, webhook signature
-# key, admin key and Resend API key are NOT here: locally they go in worker/.dev.vars, and on
-# Cloudflare they're set with `npx wrangler secret put <NAME>`.
+# key, admin key, Resend API key and CJ API key are NOT here: locally they
+# go in worker/.dev.vars, and on Cloudflare they're set with
+# `npx wrangler secret put <NAME>`.
 [vars]
 SQUARE_ENVIRONMENT = "sandbox"
 ALLOWED_ORIGINS = "https://shopunco.com,https://www.shopunco.com,http://localhost:8080"
@@ -28,6 +29,20 @@ CONTACT_TO = "support@shopunco.com"
 # forwarding at Squarespace.
 OWNER_EMAIL = "orders@shopunco.com"
 
+# CJdropshipping (src/cj.js). CJ_API_KEY is a secret, never set here.
+# CJ_ORDER_MODE: "dry-run" builds each CJ order and stores it on the order
+# without sending anything; "sandbox" sends CJ sandbox orders, which are
+# never charged or shipped; "live" places real orders that cost real money.
+CJ_ORDER_MODE = "dry-run"
+# "true" pays live CJ orders from your CJ wallet balance as they're placed.
+# Anything else leaves them unpaid in My CJ for you to pay.
+CJ_AUTO_PAY = "false"
+# CJ shipping methods you accept, best first, separated by commas. Each
+# order uses the first one CJ's quote offers for its items and address;
+# products with batteries usually only get "Sensitive" lines.
+CJ_LOGISTIC_NAME = "CJPacket Ordinary,CJPacket Sensitive"
+CJ_FROM_COUNTRY = "CN"
+
 # After deploying, set this to the exact URL of the webhook subscription in
 # Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
 # SQUARE_WEBHOOK_URL = ""
@@ -40,3 +55,7 @@ binding = "ORDERS"
 # Customer accounts, sign-in codes and sessions
 [[kv_namespaces]]
 binding = "ACCOUNTS"
+
+# Checks CJ for tracking numbers at the start of every hour
+[triggers]
+crons = ["0 * * * *"]

@@ -493,6 +493,11 @@ const api = {
 
     async adminUpdateOrder(adminKey, orderId, fields) {
         return adminRequest(adminKey, "/admin/orders/" + encodeURIComponent(orderId), fields);
+    },
+
+    // Tries the automatic CJdropshipping order again for one paid order
+    async adminSendToCj(adminKey, orderId) {
+        return adminRequest(adminKey, "/admin/orders/" + encodeURIComponent(orderId) + "/send-to-cj", {});
     }
 };
 

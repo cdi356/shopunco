@@ -30,3 +30,9 @@ EMAIL_DEV_LOG=true
 # testing (wrangler.toml's CONTACT_TO and OWNER_EMAIL are used otherwise)
 # CONTACT_TO=you@example.com
 # OWNER_EMAIL=you@example.com
+
+# CJdropshipping. Without CJ_API_KEY, orders are only built (dry run).
+# On Cloudflare: npx wrangler secret put CJ_API_KEY
+# CJ_API_KEY=paste-your-cj-api-key-here
+# Override wrangler.toml locally, e.g. to try CJ's sandbox:
+# CJ_ORDER_MODE=sandbox

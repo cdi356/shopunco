@@ -2,7 +2,8 @@
 
 A small Cloudflare Worker that is the site's backend: Square checkout,
 payment confirmation, customer accounts with emailed sign-in codes, order
-emails, the contact form, and the private order desk.
+emails, the contact form, automatic ordering from CJdropshipping, and the
+private order desk.
 
 1. The site sends only product ids and quantities. The Worker looks up prices
    in `js/products.js`, gives the order its number, and asks Square for a
@@ -12,10 +13,13 @@ emails, the contact form, and the private order desk.
 3. Square tells the Worker when the payment goes through (or fails, or is
    refunded) with a webhook. Only that marks an order as paid. The thank-you
    page and order history ask the Worker for each order's status.
-4. A paid order goes on the **order desk**, a private page at
-   `shopunco.com/#admin`. It shows the shipping address and each item's
-   AliExpress link, so you can place the order on AliExpress, then record the
-   AliExpress order number and tracking number there.
+4. A paid order is sent to **CJdropshipping** (CJ) with the customer's
+   address (`src/cj.js`). Every hour the Worker asks CJ for tracking numbers
+   and marks shipped orders. See [CJdropshipping](#cjdropshipping) below.
+5. Every paid order is on the **order desk**, a private page at
+   `shopunco.com/#admin`. It shows the CJ order or why CJ couldn't take it,
+   and each item's AliExpress link, so anything CJ can't do can be ordered on
+   AliExpress by hand.
 
 Customer accounts (`src/accounts.js`): shoppers sign in with a 6-digit code
 emailed through [Resend](https://resend.com), or with a password they choose.
@@ -23,8 +27,9 @@ Orders are linked to the email they were placed with, so guest orders appear
 once that email signs up. Order history shows payment status and, once you
 add it on the order desk, the tracking number.
 
-Your Square access token, webhook signature key, admin key and Resend API key are passwords. Never put
-them in the website files, in `wrangler.toml`, in a commit, or in a chat.
+Your Square access token, webhook signature key, admin key, Resend API key
+and CJ API key are passwords. Never put them in the website files, in
+`wrangler.toml`, in a commit, or in a chat.
 
 ## 1. Test locally with Square's sandbox
 
@@ -154,9 +159,125 @@ per connection.
 
 `EMAIL_FROM` in `wrangler.toml` must use the verified domain.
 
+## CJdropshipping
+
+When Square confirms a payment and the shipping address has arrived, the
+Worker creates the order on CJ with our order number (`UNCO-...`), the
+customer's address and each item's CJ variant. The order desk then shows it
+as **Ordered** with CJ's order id. If anything is missing (an item with no
+CJ variant, no address) or CJ says no, the order stays in **To order** with
+the reason in red, to fix and **Send to CJ** again, or to order by hand.
+
+Shipping: CJ offers different shipping methods per product (anything with
+a battery usually only gets the "Sensitive" lines) and address. Before each
+order, the Worker asks CJ for a shipping quote and uses the first method in
+`CJ_LOGISTIC_NAME` that CJ offers. If none is offered, the desk shows what
+CJ does offer, with prices, so you can add one. The chosen method and its
+cost are shown on the order.
+
+Sending twice can't create two CJ orders: before creating one, the Worker
+asks CJ whether it already has our order number, and CJ itself refuses a
+second order with the same number.
+
+### Setup
+
+1. Create a CJ account at [cjdropshipping.com](https://cjdropshipping.com).
+2. Install the **API** app (My CJ > **Apps**), then open the
+   [API page](https://www.cjdropshipping.com/my.html#/authorize/API) and add
+   an **API key**. CJ's steps:
+   [How to Get API Key](https://developers.cjdropshipping.com/en/api/start/apikey.html).
+3. Store it. Locally, paste it into `.dev.vars`:
+
+   ```
+   CJ_API_KEY=your-key
+   ```
+
+   On Cloudflare:
+
+   ```bash
+   npx wrangler secret put CJ_API_KEY
+   ```
+
+   The Worker trades the key for an access token (good for about 180 days),
+   keeps the token in the `ORDERS` storage, and refreshes it before it
+   expires. The key itself is never stored or logged.
+4. Add your CJ wallet balance in My CJ if you'll use auto-pay.
+
+### Each product's variant id (vid)
+
+CJ ships exactly the variant you name, so each product in `js/products.js`
+needs CJ's **variant id** for the option you sell:
+
+```js
+cj: { vid: "92511400-C758-4474-93CA-66D442F5F787", sku: "CJJJ1234567-Black-16ft" }
+```
+
+To find it: open the product on cjdropshipping.com and note its **SKU**
+(the product's starts with `CJ`; each option's adds e.g. `-Black`). Then ask
+CJ's API for the product, which lists every variant with its `vid`,
+`variantSku` and options (`variantKey`, e.g. `Black-XXL`):
+
+```bash
+curl -s "https://developers.cjdropshipping.com/api2.0/v1/product/query?productSku=CJJJ1234567" \
+  -H "CJ-Access-Token: $CJ_TOKEN"
+```
+
+(`?variantSku=CJJJ1234567-Black` returns the product for one variant's SKU.)
+
+(`$CJ_TOKEN` is an access token: `POST
+https://developers.cjdropshipping.com/api2.0/v1/authentication/getAccessToken`
+with body `{"apiKey": "..."}`. Don't paste it anywhere public.) Copy the
+`vid` of the variant whose `variantSku` matches, and the SKU itself into
+`sku` for reference. Products without `cj.vid` are never sent to CJ; an
+order containing one stays on the desk to order by hand.
+
+### Dry run, sandbox and live
+
+`CJ_ORDER_MODE` in `wrangler.toml`:
+
+- `dry-run` (default): no order is created. The Worker builds the exact CJ
+  request, prints it to the Worker's log and stores it on the order; the
+  desk shows it under **Order that would go to CJ (dry run)**. With
+  `CJ_API_KEY` set, it also gets CJ's shipping quote (read-only), so you
+  see the method and cost it would use. Use this to check addresses,
+  variants and shipping before spending anything.
+- `sandbox`: sends CJ **sandbox** orders (`isSandbox: 1`), which CJ never
+  charges, ships or fulfils. Good for a first end-to-end test with your key.
+- `live`: real CJ orders that cost real money. Switch to it only once dry
+  runs look right, then deploy.
+
+### Paying CJ (auto-pay)
+
+CJ's API can pay an order from your **CJ wallet balance** as it's created
+(`payType: 2`). With `CJ_AUTO_PAY = "true"` in live mode, the Worker does
+that, so orders go straight to CJ's warehouse. If the balance is short, CJ
+holds the order and the desk shows CJ's reason.
+
+Off (the default, `payType: 3`), orders are created unpaid; the desk shows
+"CJ won't ship this until you pay for it in My CJ". Pay them in My CJ under
+Orders.
+
+### Tracking
+
+A cron trigger in `wrangler.toml` (`0 * * * *`, every hour) asks CJ about
+every order it has that hasn't shipped, 50 at a time. When CJ has a
+tracking number, the Worker fills in the carrier (CJ's shipping method,
+e.g. CJPacket Sensitive) and tracking number and sets the order to
+**Shipped**, so customers see it in their account. If CJ cancels an order,
+it goes back to **To order** with a note. To try the cron locally:
+
+```bash
+npx wrangler dev --test-scheduled
+curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"
+```
+
+CJ doesn't publish a link to a single order in My CJ, so the desk shows the
+CJ order id; search for it (or our `UNCO-...` number) in My CJ under Orders.
+
 ## Order desk
 
-For each paid order, the desk shows the shipping address (with a **Copy
+For each paid order, the desk shows the CJ order (or, in red, why it isn't
+on CJ, with a **Send to CJ** button), the shipping address (with a **Copy
 address** button), the customer's email and phone, and each item with an
 **Open on AliExpress** link. To get those links, add `aliexpress` to each
 product in `js/products.js`:
@@ -165,9 +286,9 @@ product in `js/products.js`:
 aliexpress: { url: "https://www.aliexpress.us/item/1234567890.html", option: "Color: Black, 16ft" }
 ```
 
-To fulfil an order: open each item's link, pick the option shown, check out
-on AliExpress with the customer's address, then set the step to **Ordered on
-AliExpress** and paste the AliExpress order number. When AliExpress shows a
+To fulfil an order by hand: open each item's link, pick the option shown,
+check out on AliExpress with the customer's address, then set the step to
+**Ordered** and paste the AliExpress order number. When AliExpress shows a
 tracking number, add it and set the step to **Shipped**. Refunded orders are
 flagged so you don't order them.
 
@@ -196,8 +317,15 @@ access token and location ID, and create the same webhook subscription under
 | `CONTACT_TO` | `wrangler.toml` | Where contact form messages and customers' replies go |
 | `OWNER_EMAIL` | `wrangler.toml` | Who gets the "new order to fulfil" alert |
 | `EMAIL_DEV_LOG` | `.dev.vars` only | `true` prints emails to the log when there's no Resend key. Never set it on Cloudflare |
+| `CJ_API_KEY` | secret | Lets the Worker place orders and read tracking on CJdropshipping |
+| `CJ_ORDER_MODE` | `wrangler.toml` | `dry-run` (default, sends nothing), `sandbox` (CJ test orders) or `live` (real orders, real money) |
+| `CJ_AUTO_PAY` | `wrangler.toml` | `true` pays live CJ orders from the CJ wallet balance. Otherwise you pay in My CJ |
+| `CJ_LOGISTIC_NAME` | `wrangler.toml` | CJ shipping methods you accept, best first, comma-separated, e.g. `CJPacket Ordinary,CJPacket Sensitive` |
+| `CJ_FROM_COUNTRY` | `wrangler.toml` | Country CJ ships from, e.g. `CN` or `US` |
+| `CJ_API_URL` | `.dev.vars` only | Points the Worker at a fake CJ for local testing. Leave unset |
+| `[triggers] crons` | `wrangler.toml` | How often CJ is asked for tracking numbers (hourly) |
 | `ACCOUNTS` | KV storage | Customer accounts, sign-in codes, sessions and contact form limits |
-| `ORDERS` | KV storage | Each order's payment status, items, shipping address and order-desk progress |
+| `ORDERS` | KV storage | Each order's payment status, items, shipping address and order-desk progress, plus the CJ access token |
 
 Catalog items: add `squareVariationId` to a product in `js/products.js` and
 checkout will use Square's price for it. `TAX_PERCENTAGE` still applies on top,
