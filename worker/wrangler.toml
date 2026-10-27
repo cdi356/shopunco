@@ -19,9 +19,9 @@ TAX_NAME = "NY State sales tax"
 # Who account emails come from. The domain must be verified in Resend.
 EMAIL_FROM = "unco <hello@shopunco.com>"
 
-# After deploying, set this to the exact URL of the webhook subscription in
-# Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
-# SQUARE_WEBHOOK_URL = ""
+# The exact URL of the webhook subscription in Square, used to check that
+# payment notices really came from Square
+SQUARE_WEBHOOK_URL = "https://unco-checkout.unco-checkout.workers.dev/square/webhook"
 
 # Where each order's payment status is kept. Wrangler creates this storage
 # on Cloudflare the first time you deploy.
