@@ -25,3 +25,8 @@ ADMIN_KEY=paste-a-long-random-key-here
 # sign-in codes) to the Worker's log instead. Never set it on Cloudflare.
 # RESEND_API_KEY=paste-your-resend-api-key-here
 EMAIL_DEV_LOG=true
+
+# Optional: send contact messages and new-order alerts somewhere else while
+# testing (wrangler.toml's CONTACT_TO and OWNER_EMAIL are used otherwise)
+# CONTACT_TO=you@example.com
+# OWNER_EMAIL=you@example.com

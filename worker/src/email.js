@@ -1,11 +1,12 @@
 // Sends email through Resend (resend.com). Without RESEND_API_KEY, emails
 // are only printed to the Worker's log when EMAIL_DEV_LOG is "true", which
 // is for local testing and must never be set on Cloudflare.
-// Returns true if the email was handed off.
-export async function sendEmail(env, { to, subject, text, html }) {
+// Returns true if the email was handed off. replyTo is optional.
+export async function sendEmail(env, { to, subject, text, html, replyTo }) {
     if (!env.RESEND_API_KEY) {
         if (env.EMAIL_DEV_LOG === "true") {
-            console.log(`[dev email] To: ${to}\nSubject: ${subject}\n\n${text}`);
+            const replyLine = replyTo ? `\nReply-To: ${replyTo}` : "";
+            console.log(`[dev email] To: ${to}${replyLine}\nSubject: ${subject}\n\n${text}`);
             return true;
         }
         console.error("Email isn't set up: RESEND_API_KEY is missing");
@@ -23,7 +24,8 @@ export async function sendEmail(env, { to, subject, text, html }) {
             to: [to],
             subject: subject,
             text: text,
-            html: html
+            html: html,
+            ...(replyTo ? { reply_to: replyTo } : {})
         })
     });
 
@@ -45,4 +47,31 @@ export function emailLayout(heading, bodyHtml) {
             <p style="margin: 32px 0 0; color: #777; font-size: 13px;">unco &middot; shopunco.com</p>
         </div>
     `;
+}
+
+// Anything a shopper typed must go through this before it goes in an email's HTML
+export function escapeHtml(text) {
+    return String(text ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+}
+
+// Same as sendEmail, but never throws: a failed email is logged and must
+// never stop a webhook, an order desk save or a sign-in
+export async function trySendEmail(env, message) {
+    try {
+        return await sendEmail(env, message);
+    } catch (error) {
+        console.error("Email failed", message.subject, error?.message || error);
+        return false;
+    }
+}
+
+// A paragraph and a button-style link, matching emailLayout
+export function emailParagraph(html) {
+    return `<p style="margin: 0 0 16px; font-size: 16px; line-height: 1.5;">${html}</p>`;
+}
+
+export function emailButton(href, label) {
+    return `<p style="margin: 8px 0 24px;"><a href="${escapeHtml(href)}" style="display: inline-block; padding: 12px 24px; color: #fff; background: #453F78; border-radius: 999px; text-decoration: none; font-weight: bold;">${escapeHtml(label)}</a></p>`;
 }

@@ -1,5 +1,5 @@
 import { json, sha256Hex, toHex, safeEqual } from "./http.js";
-import { sendEmail, emailLayout } from "./email.js";
+import { sendEmail, trySendEmail, emailLayout, emailParagraph, emailButton } from "./email.js";
 
 // Customer accounts. Shoppers sign in with a 6-digit code sent by email, or
 // with a password if they chose one. Accounts, codes and sessions live in
@@ -159,6 +159,7 @@ async function verifyCode(env, body) {
             createdAt: new Date().toISOString()
         };
         await saveAccount(env, account);
+        await trySendEmail(env, welcomeEmail(env, email));
     }
 
     return ok({ token: await startSession(env, email), created: created });
@@ -240,6 +241,8 @@ async function setLoginMethod(env, body, request) {
         return fail(401, "Please sign in again.");
     }
 
+    // What changed, for the security email; null when nothing did
+    let change = null;
     if (body.method === "password") {
         const password = String(body.password || "");
         // Already on password with no new one typed: keep the current one
@@ -252,10 +255,12 @@ async function setLoginMethod(env, body, request) {
         if (password.length > MAX_PASSWORD_LENGTH) {
             return fail(400, "That password is too long.");
         }
+        change = account.loginMethod === "password" ? "password-changed" : "password-set";
         account.loginMethod = "password";
         account.passwordSalt = toHex(crypto.getRandomValues(new Uint8Array(16)));
         account.passwordHash = await hashPassword(password, account.passwordSalt);
     } else if (body.method === "email-code") {
+        change = account.loginMethod === "email-code" ? null : "email-code";
         account.loginMethod = "email-code";
         account.passwordHash = null;
         account.passwordSalt = null;
@@ -264,6 +269,9 @@ async function setLoginMethod(env, body, request) {
     }
 
     await saveAccount(env, account);
+    if (change) {
+        await trySendEmail(env, securityEmail(env, account.email, change));
+    }
     return ok({});
 }
 
@@ -290,6 +298,64 @@ async function getOrders(env, body, request) {
         }));
 
     return ok({ orders: orders });
+}
+
+/* ------------------------- */
+/*          emails           */
+/* ------------------------- */
+
+function welcomeEmail(env, email) {
+    const site = env.SITE_URL || "https://shopunco.com";
+    return {
+        to: email,
+        replyTo: env.CONTACT_TO || undefined,
+        subject: "Welcome to unco",
+        text: [
+            "Thank you for creating an unco account.",
+            "Whenever you order with this email address, your orders, their status and tracking numbers show up in your account, even orders you placed as a guest.",
+            "To sign in, enter your email on the website and we'll send you a 6-digit code. If you'd rather use a password, you can set one in your account.",
+            `Your account: ${site}/#account`,
+            "Questions? Just reply to this email.\n\nThank you,\nunco"
+        ].join("\n\n"),
+        html: emailLayout(
+            "Welcome to unco",
+            emailParagraph("Thank you for creating an unco account.") +
+            emailParagraph("Whenever you order with this email address, your orders, their status and tracking numbers show up in your account, even orders you placed as a guest.") +
+            emailParagraph("To sign in, enter your email on the website and we'll send you a 6-digit code. If you'd rather use a password, you can set one in your account.") +
+            emailButton(site + "/#account", "Go to your account") +
+            emailParagraph("Questions? Just reply to this email.") +
+            emailParagraph("Thank you,<br>unco")
+        )
+    };
+}
+
+const SECURITY_CHANGES = {
+    "password-set": "A password was added to your unco account. From now on you sign in with your email and that password.",
+    "password-changed": "The password for your unco account was changed.",
+    "email-code": "Your unco account was switched back to signing in with a code sent by email. Your password was removed."
+};
+
+function securityEmail(env, email, change) {
+    const contact = env.CONTACT_TO
+        ? `contact us right away at ${env.CONTACT_TO}`
+        : "contact us right away using the contact page at shopunco.com";
+    return {
+        to: email,
+        replyTo: env.CONTACT_TO || undefined,
+        subject: "Your unco sign-in was changed",
+        text: [
+            SECURITY_CHANGES[change],
+            "If you made this change, you don't need to do anything.",
+            `If this wasn't you, ${contact}, or simply reply to this email.`,
+            "unco"
+        ].join("\n\n"),
+        html: emailLayout(
+            "Your sign-in was changed",
+            emailParagraph(SECURITY_CHANGES[change]) +
+            emailParagraph("If you made this change, you don't need to do anything.") +
+            emailParagraph(`<strong>If this wasn't you, ${contact}</strong>, or simply reply to this email.`)
+        )
+    };
 }
 
 /* ------------------------- */

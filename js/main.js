@@ -71,27 +71,44 @@ const pages = {
 
     contact: `
         <h1 class="page-header">Contact Us</h1>
-        <div class="contact">
+        <form class="contact" id="contact-form" novalidate>
+            <p class="form-hint">Questions about an order, or anything else? Send us a message and we'll write back by email, usually within one business day.</p>
+            <label for="contact-name">Your name</label>
             <input
                 id="contact-name"
                 class="contact-name"
                 type="text"
-                placeholder="name"
+                autocomplete="name"
+                maxlength="100"
+                required
             >
+            <label for="contact-email">Your email</label>
             <input
                 id="contact-email"
                 class="contact-email"
                 type="email"
-                placeholder="email"
+                autocomplete="email"
+                maxlength="254"
+                required
             >
+            <label for="contact-text">Your message</label>
             <textarea
                 id="contact-text"
                 class="contact-text"
                 rows="6"
-                placeholder="textbox"
+                maxlength="5000"
+                placeholder="If it's about an order, the order number helps (it starts with UNCO-)."
+                required
             ></textarea>
-            <button class="contact-submit" type="button">submit</button>
-        </div>
+            <!-- Hidden from people; bots that fill it in are ignored -->
+            <div class="contact-website" aria-hidden="true">
+                <label for="contact-website">Website</label>
+                <input id="contact-website" name="website" type="text" tabindex="-1" autocomplete="off">
+            </div>
+            <p class="form-error" id="contact-error" role="alert"></p>
+            <p class="form-success" id="contact-success" role="status"></p>
+            <button class="contact-submit" type="submit">Send message</button>
+        </form>
     `,
 
     cart: `
@@ -263,7 +280,43 @@ document.addEventListener("submit", (event) => {
         event.preventDefault();
         finishCheckout(document.getElementById("checkout-email").value);
     }
+    if (event.target.id === "contact-form") {
+        event.preventDefault();
+        sendContactMessage();
+    }
 });
+
+async function sendContactMessage() {
+    const form = document.getElementById("contact-form");
+    const errorBox = document.getElementById("contact-error");
+    const successBox = document.getElementById("contact-success");
+    const button = form.querySelector(".contact-submit");
+
+    errorBox.textContent = "";
+    successBox.textContent = "";
+    button.disabled = true;
+    button.textContent = "Sending...";
+
+    const result = await api.sendContactMessage({
+        name: document.getElementById("contact-name").value,
+        email: document.getElementById("contact-email").value,
+        message: document.getElementById("contact-text").value,
+        website: document.getElementById("contact-website").value
+    });
+
+    button.disabled = false;
+    button.textContent = "Send message";
+
+    if (!result.ok) {
+        errorBox.textContent = result.error;
+        return;
+    }
+
+    form.reset();
+    successBox.textContent = result.demo
+        ? "Demo mode: messages aren't sent anywhere yet. Once the site is connected, this will reach us by email."
+        : "Thank you! Your message is on its way. We'll write back to you by email, usually within one business day.";
+}
 
 function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, c => ({
