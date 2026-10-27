@@ -449,6 +449,31 @@ const api = {
         return { ok: true, url: result.checkoutUrl, orderId: result.orderId };
     },
 
+    // The contact form. website is the hidden field only bots fill in.
+    async sendContactMessage({ name, email, message, website }) {
+        name = String(name || "").trim();
+        email = normalizeEmail(email);
+        message = String(message || "").trim();
+
+        if (!name) {
+            return { ok: false, error: "Please enter your name." };
+        }
+        if (!isValidEmail(email)) {
+            return { ok: false, error: "Please enter a valid email address so we can write back." };
+        }
+        if (!message) {
+            return { ok: false, error: "Please write your message." };
+        }
+        if (DEMO_MODE) {
+            return { ok: true, demo: true };
+        }
+
+        const result = await workerRequest("/contact", {
+            body: { name: name, email: email, message: message, website: website || "" }
+        });
+        return result.ok ? { ok: true } : result;
+    },
+
     // Asks the Worker which orders Square has confirmed as paid.
     // Returns { orderId: status }; orders it can't check are left out.
     async getOrderStatuses(orderIds) {

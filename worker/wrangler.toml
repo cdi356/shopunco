@@ -19,6 +19,15 @@ TAX_NAME = "NY State sales tax"
 # Who account emails come from. The domain must be verified in Resend.
 EMAIL_FROM = "unco <hello@shopunco.com>"
 
+# Where contact form messages go. Customers' replies to order emails go
+# here too. Resend only sends, so this address needs forwarding (set up at
+# Squarespace) to an inbox you read.
+CONTACT_TO = "support@shopunco.com"
+
+# Who gets the "new order to fulfil" alert for each paid order. Also needs
+# forwarding at Squarespace.
+OWNER_EMAIL = "orders@shopunco.com"
+
 # After deploying, set this to the exact URL of the webhook subscription in
 # Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
 # SQUARE_WEBHOOK_URL = ""

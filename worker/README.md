@@ -1,8 +1,8 @@
 # unco Worker
 
 A small Cloudflare Worker that is the site's backend: Square checkout,
-payment confirmation, customer accounts with emailed sign-in codes, and the
-private order desk.
+payment confirmation, customer accounts with emailed sign-in codes, order
+emails, the contact form, and the private order desk.
 
 1. The site sends only product ids and quantities. The Worker looks up prices
    in `js/products.js`, gives the order its number, and asks Square for a
@@ -104,8 +104,35 @@ POST it to `http://localhost:8787/square/webhook`.
 
 ## Sending email (Resend)
 
-Sign-in codes are emailed from `hello@shopunco.com` through Resend's free
-plan (3,000 emails a month, 100 a day).
+Every email is sent from `hello@shopunco.com` through Resend's free plan
+(3,000 emails a month, 100 a day). Each has a plain-text version.
+
+| Email | Sent to | When |
+| --- | --- | --- |
+| Sign-in code | Customer | They sign in or sign up with an email code |
+| Welcome | Customer | Their account is created |
+| Sign-in changed | Customer | They set or change a password, or switch back to email codes. Says "if this wasn't you, contact us" |
+| Order confirmation | Customer | Square's webhook says the order is paid (Square sends its own payment receipt too) |
+| New order to fulfil | `OWNER_EMAIL` | Same moment, with a link to the order desk |
+| Your order is on its way | Customer | The order desk saves the order as **Shipped** with a tracking number |
+| Refund | Customer | Square's webhook says the order was refunded |
+| Contact form message | `CONTACT_TO` | Someone sends the form on `#contact`. Reply-To is their email, so just hit Reply |
+
+Each order email is sent at most once per order, however often Square
+repeats a webhook or the desk is saved: the order records which ones went
+out (`emails.confirmation`, `emails.ownerAlert`, `emails.shipped`,
+`emails.refund`). If Resend fails, the error is logged, the webhook or save
+still succeeds, and the email is tried again the next time that order is
+updated. Fix a wrong tracking number by telling the customer yourself; the
+shipped email isn't sent a second time.
+
+Customers' replies to unco's emails go to `CONTACT_TO`. Resend only sends
+email, so `CONTACT_TO` (and `OWNER_EMAIL`, if it's a shopunco.com address)
+needs email forwarding at Squarespace to an inbox you read.
+
+The contact form ignores submissions that fill in a hidden field (bots do,
+people can't see it) and allows 3 messages an hour per email address and 5
+per connection.
 
 1. Create a free account at [resend.com](https://resend.com).
 2. Go to **Domains**, click **Add Domain**, and enter `shopunco.com`.
@@ -158,16 +185,18 @@ access token and location ID, and create the same webhook subscription under
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | secret | Proves payment notifications really came from Square |
 | `SQUARE_WEBHOOK_URL` | `wrangler.toml` | The webhook subscription's exact URL, used to check signatures |
 | `SQUARE_ENVIRONMENT` | `wrangler.toml` | `sandbox` (test) or `production` (real money) |
-| `ALLOWED_ORIGINS` | `wrangler.toml` | Websites allowed to use checkout, accounts and order statuses |
+| `ALLOWED_ORIGINS` | `wrangler.toml` | Websites allowed to use checkout, accounts, order statuses and the contact form |
 | `SITE_URL` | `wrangler.toml` | Where Square sends shoppers after paying |
 | `TAX_PERCENTAGE` | `wrangler.toml` | Sales tax added to every item (4 = NY State). Keep in sync with `TAX_PERCENT` in `js/main.js` |
 | `TAX_NAME` | `wrangler.toml` | How the tax is labeled on Square's page and receipt |
 | `SHIPPING_FEE_CENTS` | optional var | Flat shipping fee, e.g. `599` for $5.99. Unset = free shipping |
 | `ADMIN_KEY` | secret | Opens the order desk (`#admin`) |
-| `RESEND_API_KEY` | secret | Sends sign-in code emails |
+| `RESEND_API_KEY` | secret | Sends every email (sign-in codes, order emails, contact messages) |
 | `EMAIL_FROM` | `wrangler.toml` | Who emails come from; its domain must be verified in Resend |
+| `CONTACT_TO` | `wrangler.toml` | Where contact form messages and customers' replies go |
+| `OWNER_EMAIL` | `wrangler.toml` | Who gets the "new order to fulfil" alert |
 | `EMAIL_DEV_LOG` | `.dev.vars` only | `true` prints emails to the log when there's no Resend key. Never set it on Cloudflare |
-| `ACCOUNTS` | KV storage | Customer accounts, sign-in codes and sessions |
+| `ACCOUNTS` | KV storage | Customer accounts, sign-in codes, sessions and contact form limits |
 | `ORDERS` | KV storage | Each order's payment status, items, shipping address and order-desk progress |
 
 Catalog items: add `squareVariationId` to a product in `js/products.js` and

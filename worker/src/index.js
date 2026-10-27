@@ -1,5 +1,7 @@
 import products from "../../js/products.js";
 import { handleAccounts, addOrderToAccount } from "./accounts.js";
+import { handleContact } from "./contact.js";
+import { sendOrderEmailOnce } from "./order-emails.js";
 import { corsHeaders, json, safeEqual } from "./http.js";
 
 // The site's backend. It turns a cart into a Square-hosted checkout page,
@@ -47,6 +49,16 @@ export default {
                 return json({ error: "This site isn't allowed to use accounts." }, 403, cors);
             }
             return handleAccounts(request, url, env, cors);
+        }
+
+        if (url.pathname === "/contact") {
+            if (request.method !== "POST") {
+                return json({ error: "Not found." }, 404, cors);
+            }
+            if (!cors["Access-Control-Allow-Origin"]) {
+                return json({ error: "This site isn't allowed to send messages." }, 403, cors);
+            }
+            return handleContact(request, env, cors);
         }
 
         const isCheckout = request.method === "POST" && url.pathname === "/checkout";
@@ -277,6 +289,16 @@ async function handleWebhook(request, env) {
             order.fulfillment = order.fulfillment || "to_order";
             await saveOrder(env, order);
         }
+
+        // Each email goes out once per order however often Square repeats
+        // the webhook, and a failed email never fails the webhook
+        if (order && order.status === "paid") {
+            await sendOrderEmailOnce(env, order, "confirmation", saveOrder);
+            await sendOrderEmailOnce(env, order, "ownerAlert", saveOrder);
+        }
+        if (order && order.status === "refunded") {
+            await sendOrderEmailOnce(env, order, "refund", saveOrder);
+        }
     }
 
     // Anything else (other events, orders we didn't create) is acknowledged
@@ -488,6 +510,12 @@ async function updateFulfillment(request, env, cors, orderId) {
     order.fulfillment = body.fulfillment;
     order.updatedAt = new Date().toISOString();
     await saveOrder(env, order);
+
+    // Sent the first time the order is saved as shipped with a tracking
+    // number; saving it again later doesn't send it twice
+    if (order.status === "paid" && order.fulfillment === "shipped" && order.trackingNumber) {
+        await sendOrderEmailOnce(env, order, "shipped", saveOrder);
+    }
 
     return json({ order: order }, 200, cors);
 }

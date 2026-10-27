@@ -286,6 +286,21 @@ input[type="search"] {
     resize: vertical;
 }
 
+.contact label {
+    margin-bottom: -6px;
+    font-weight: bold;
+    text-align: left;
+}
+
+/* The honeypot field: off screen for people, still there for bots */
+.contact-website {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
 .contact-submit {
     align-self: center;
     padding: 8px 24px;
