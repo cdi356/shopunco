@@ -1,30 +1,201 @@
 /* ------------------------- */
-/*     DEMO account backend  */
+/*          site API         */
 /* ------------------------- */
 
-// Everything in this file is a stand-in for a real server. It keeps
-// accounts and orders in this browser's localStorage and shows sign-in
-// codes on screen instead of emailing them. It is NOT secure and must be
-// replaced by real server calls (for example a Cloudflare Worker) before
-// launch. Every function returns a Promise so the rest of the site
-// won't need to change when it talks to a real server instead.
+// Everything the site asks of a server goes through `api`. With WORKER_URL
+// set, that's the Worker in worker/: real accounts with emailed codes,
+// Square checkout and order history. With it empty, a demo stands in that
+// keeps accounts and orders in this browser and shows codes on screen. The
+// demo is NOT secure and is only for trying the site.
 
-const DEMO_MODE = true;
+// The Worker's address (see worker/README.md). Local testing: "http://localhost:8787"
+const WORKER_URL = "";
+const DEMO_MODE = !WORKER_URL;
 
-// The checkout Worker's address (see worker/README.md). Leave empty to
-// keep the demo confirmation instead of opening Square checkout.
-// Local testing: "http://localhost:8787"
-const CHECKOUT_API_URL = "";
+const MIN_PASSWORD_LENGTH = 8;
+const SESSION_TOKEN_KEY = "unco-session-token";
 
-const DB_KEY = "unco-demo-db";
-const SESSION_KEY = "unco-session";
+// Labels for order statuses
+const ORDER_STATUS_LABELS = {
+    awaiting_payment: "Awaiting payment",
+    payment_failed: "Payment failed",
+    paid: "Paid",
+    shipped: "Shipped",
+    refunded: "Refunded"
+};
+
+function normalizeEmail(email) {
+    return String(email || "").trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/* ------------------------- */
+/*          Worker           */
+/* ------------------------- */
+
+// Sends body as a POST, or makes a GET when there's none. token goes in the
+// Authorization header: a session token, or the order desk's admin key.
+async function workerRequest(path, { body, token } = {}) {
+    const headers = {};
+    if (body) {
+        headers["Content-Type"] = "application/json";
+    }
+    if (token) {
+        headers["Authorization"] = "Bearer " + token;
+    }
+
+    try {
+        const response = await fetch(WORKER_URL + path, body
+            ? { method: "POST", headers: headers, body: JSON.stringify(body) }
+            : { headers: headers });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return { ok: false, status: response.status, error: data.error || "Something went wrong. Please try again." };
+        }
+        return { ok: true, ...data };
+    } catch (error) {
+        return { ok: false, error: "We couldn't reach unco. Please check your connection and try again." };
+    }
+}
+
+function getSessionToken() {
+    try {
+        return localStorage.getItem(SESSION_TOKEN_KEY);
+    } catch (error) {
+        return null;
+    }
+}
+
+function setSessionToken(token) {
+    try {
+        if (token) {
+            localStorage.setItem(SESSION_TOKEN_KEY, token);
+        } else {
+            localStorage.removeItem(SESSION_TOKEN_KEY);
+        }
+    } catch (error) {
+        // Storage unavailable; the shopper stays signed in for this page only
+    }
+}
+
+// A shipped order shows as "Shipped" rather than "Paid"
+function withStatusLabel(order) {
+    const shown = order.status === "paid" && order.fulfillment === "shipped" ? "shipped" : order.status;
+    return { ...order, shownStatus: shown, statusLabel: ORDER_STATUS_LABELS[shown] || shown };
+}
+
+// Asked for on almost every page, so one answer is kept until sign-in changes
+let sessionRequest = null;
+
+const workerApi = {
+    async startSignIn(rawEmail) {
+        const email = normalizeEmail(rawEmail);
+        if (!isValidEmail(email)) {
+            return { ok: false, error: "Please enter a valid email address." };
+        }
+
+        const result = await workerRequest("/auth/start", { body: { email: email } });
+        return result.ok ? { ok: true, email: email, next: result.next, isNew: result.isNew } : result;
+    },
+
+    async sendCode(rawEmail) {
+        const email = normalizeEmail(rawEmail);
+        const result = await workerRequest("/auth/send-code", { body: { email: email } });
+        return result.ok ? { ok: true, email: email, isNew: result.isNew } : result;
+    },
+
+    async verifyCode(rawEmail, rawCode) {
+        const result = await workerRequest("/auth/verify", {
+            body: { email: normalizeEmail(rawEmail), code: String(rawCode || "").trim() }
+        });
+        if (!result.ok) {
+            return result;
+        }
+
+        setSessionToken(result.token);
+        sessionRequest = null;
+        return { ok: true, created: result.created };
+    },
+
+    async signInWithPassword(rawEmail, password) {
+        const result = await workerRequest("/auth/password", {
+            body: { email: normalizeEmail(rawEmail), password: password }
+        });
+        if (!result.ok) {
+            return result;
+        }
+
+        setSessionToken(result.token);
+        sessionRequest = null;
+        return { ok: true };
+    },
+
+    async getSession() {
+        const token = getSessionToken();
+        if (!token) {
+            return null;
+        }
+
+        if (!sessionRequest) {
+            sessionRequest = workerRequest("/auth/session", { token: token }).then(result => {
+                if (result.status === 401) {
+                    setSessionToken(null);
+                }
+                if (!result.ok) {
+                    sessionRequest = null;
+                    return null;
+                }
+                return { email: result.email, loginMethod: result.loginMethod, createdAt: result.createdAt };
+            });
+        }
+        return sessionRequest;
+    },
+
+    async signOut() {
+        const token = getSessionToken();
+        setSessionToken(null);
+        sessionRequest = null;
+        if (token) {
+            await workerRequest("/auth/sign-out", { body: {}, token: token });
+        }
+        return { ok: true };
+    },
+
+    async setLoginMethod(method, password) {
+        const result = await workerRequest("/auth/login-method", {
+            body: { method: method, password: password },
+            token: getSessionToken()
+        });
+        sessionRequest = null;
+        return result.ok ? { ok: true } : result;
+    },
+
+    // Orders are matched by email, so guest orders appear once that email signs up
+    async getOrders() {
+        const result = await workerRequest("/account/orders", { token: getSessionToken() });
+        if (!result.ok) {
+            return [];
+        }
+        return result.orders.map(order => withStatusLabel({ ...order, total: order.total / 100 }));
+    }
+};
+
+/* ------------------------- */
+/*           demo            */
+/* ------------------------- */
+
+const DEMO_DB_KEY = "unco-demo-db";
+const DEMO_SESSION_KEY = "unco-session";
 const CODE_LIFETIME_MS = 10 * 60 * 1000;
 const MAX_CODE_ATTEMPTS = 5;
-const MIN_PASSWORD_LENGTH = 8;
 
 function loadDb() {
     try {
-        const saved = JSON.parse(localStorage.getItem(DB_KEY));
+        const saved = JSON.parse(localStorage.getItem(DEMO_DB_KEY));
         if (saved && saved.accounts && saved.orders && saved.codes) {
             return saved;
         }
@@ -36,18 +207,10 @@ function loadDb() {
 
 function saveDb(db) {
     try {
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
+        localStorage.setItem(DEMO_DB_KEY, JSON.stringify(db));
     } catch (error) {
         // Storage unavailable; changes last only for this visit
     }
-}
-
-function normalizeEmail(email) {
-    return String(email || "").trim().toLowerCase();
-}
-
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 async function hashPassword(email, password) {
@@ -56,6 +219,7 @@ async function hashPassword(email, password) {
     return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
 }
 
+// The demo shows the code on screen instead of emailing it
 function issueCode(db, email) {
     const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
 
@@ -65,25 +229,16 @@ function issueCode(db, email) {
         attempts: 0
     };
 
-    // A real server would email the code here and never return it
-    return DEMO_MODE ? code : null;
+    return code;
 }
 
-function startSession(email) {
+function startDemoSession(email) {
     try {
-        localStorage.setItem(SESSION_KEY, email);
+        localStorage.setItem(DEMO_SESSION_KEY, email);
     } catch (error) {
         // Storage unavailable; the user stays signed out
     }
 }
-
-// Labels for the statuses the checkout Worker reports
-const ORDER_STATUS_LABELS = {
-    awaiting_payment: "Awaiting payment",
-    payment_failed: "Payment failed",
-    paid: "Paid",
-    refunded: "Refunded"
-};
 
 function randomOrderId() {
     const alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -91,37 +246,7 @@ function randomOrderId() {
     return "UNCO-" + Array.from(bytes, b => alphabet[b % alphabet.length]).join("");
 }
 
-// Sends fields as a POST, or makes a GET when there are none
-async function adminRequest(adminKey, path, fields) {
-    if (!CHECKOUT_API_URL) {
-        return { ok: false, error: "The order desk needs the checkout Worker. Set CHECKOUT_API_URL in js/api.js." };
-    }
-
-    const headers = { "Authorization": "Bearer " + adminKey };
-    if (fields) {
-        headers["Content-Type"] = "application/json";
-    }
-
-    try {
-        const response = await fetch(CHECKOUT_API_URL + path, fields
-            ? { method: "POST", headers: headers, body: JSON.stringify(fields) }
-            : { headers: headers });
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            return { ok: false, unauthorized: response.status === 401, error: data.error || "Something went wrong. Please try again." };
-        }
-        return { ok: true, ...data };
-    } catch (error) {
-        return { ok: false, error: "We couldn't reach the order desk. Please check your connection and try again." };
-    }
-}
-
-const api = {
-    isValidEmail(rawEmail) {
-        return isValidEmail(normalizeEmail(rawEmail));
-    },
-
+const demoApi = {
     // Step 1 of signing in or signing up: tells the page what to ask for next
     async startSignIn(rawEmail) {
         const email = normalizeEmail(rawEmail);
@@ -187,7 +312,7 @@ const api = {
         }
 
         saveDb(db);
-        startSession(email);
+        startDemoSession(email);
 
         return { ok: true, created: created };
     },
@@ -202,14 +327,14 @@ const api = {
             return { ok: false, error: "That email and password don't match." };
         }
 
-        startSession(email);
+        startDemoSession(email);
         return { ok: true };
     },
 
     async getSession() {
         let email = null;
         try {
-            email = localStorage.getItem(SESSION_KEY);
+            email = localStorage.getItem(DEMO_SESSION_KEY);
         } catch (error) {
             return null;
         }
@@ -220,7 +345,7 @@ const api = {
 
     async signOut() {
         try {
-            localStorage.removeItem(SESSION_KEY);
+            localStorage.removeItem(DEMO_SESSION_KEY);
         } catch (error) {
             // Storage unavailable; nothing to clear
         }
@@ -237,6 +362,9 @@ const api = {
         const account = db.accounts[session.email];
 
         if (method === "password") {
+            if (!password && account.loginMethod === "password") {
+                return { ok: true };
+            }
             if (!password || password.length < MIN_PASSWORD_LENGTH) {
                 return { ok: false, error: `Passwords need at least ${MIN_PASSWORD_LENGTH} characters.` };
             }
@@ -251,9 +379,8 @@ const api = {
         return { ok: true };
     },
 
-    // Records an order under an email, whether or not that email has an account.
-    // With Square checkout, the Worker supplies the order number and total.
-    async placeOrder(rawEmail, items, orderId, totalCents) {
+    // Records an order under an email, whether or not that email has an account
+    async placeOrder(rawEmail, items) {
         const email = normalizeEmail(rawEmail);
         if (!isValidEmail(email)) {
             return { ok: false, error: "Please enter a valid email address." };
@@ -266,12 +393,12 @@ const api = {
 
         const subtotal = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
         const order = {
-            id: orderId || randomOrderId(),
+            id: randomOrderId(),
             email: email,
             date: new Date().toISOString(),
             items: lines,
             subtotal: subtotal,
-            total: Number.isInteger(totalCents) ? totalCents / 100 : subtotal + calculateTax(subtotal),
+            total: subtotal + calculateTax(subtotal),
             status: "awaiting_payment"
         };
 
@@ -282,47 +409,58 @@ const api = {
         return { ok: true, order: order };
     },
 
-    // Real: asks the checkout Worker for a Square checkout page. Only ids and
-    // quantities are sent; the Worker looks up the prices itself.
-    async createCheckout(email, items) {
-        try {
-            const response = await fetch(CHECKOUT_API_URL + "/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: email,
-                    items: items.map(item => ({ id: item.id, quantity: item.quantity }))
-                })
-            });
-            const data = await response.json().catch(() => ({}));
-
-            if (!response.ok || !data.checkoutUrl || !data.orderId) {
-                return { ok: false, error: data.error || "We couldn't start checkout. Please try again." };
-            }
-            return { ok: true, url: data.checkoutUrl, orderId: data.orderId, total: data.total };
-        } catch (error) {
-            return { ok: false, error: "We couldn't reach checkout. Please check your connection and try again." };
+    async getOrders() {
+        const session = await this.getSession();
+        if (!session) {
+            return [];
         }
+
+        return loadDb().orders
+            .filter(order => order.email === session.email)
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map(withStatusLabel);
+    }
+};
+
+/* ------------------------- */
+/*     checkout and admin    */
+/* ------------------------- */
+
+const api = {
+    ...(DEMO_MODE ? demoApi : workerApi),
+
+    isValidEmail(rawEmail) {
+        return isValidEmail(normalizeEmail(rawEmail));
     },
 
-    // Real: asks the checkout Worker which orders Square has confirmed as paid.
+    // Asks the Worker for a Square checkout page. Only ids and quantities are
+    // sent; the Worker looks up the prices and gives the order its number.
+    async createCheckout(email, items) {
+        const result = await workerRequest("/checkout", {
+            body: {
+                email: email,
+                items: items.map(item => ({ id: item.id, quantity: item.quantity }))
+            }
+        });
+
+        if (!result.ok || !result.checkoutUrl || !result.orderId) {
+            return { ok: false, error: result.error || "We couldn't start checkout. Please try again." };
+        }
+        return { ok: true, url: result.checkoutUrl, orderId: result.orderId };
+    },
+
+    // Asks the Worker which orders Square has confirmed as paid.
     // Returns { orderId: status }; orders it can't check are left out.
     async getOrderStatuses(orderIds) {
-        if (!CHECKOUT_API_URL || orderIds.length === 0) {
+        if (DEMO_MODE || orderIds.length === 0) {
             return {};
         }
 
-        try {
-            const response = await fetch(CHECKOUT_API_URL + "/orders/status?ids=" +
-                orderIds.map(encodeURIComponent).join(","));
-            const data = await response.json().catch(() => ({}));
-            return response.ok && data.statuses ? data.statuses : {};
-        } catch (error) {
-            return {};
-        }
+        const result = await workerRequest("/orders/status?ids=" + orderIds.map(encodeURIComponent).join(","));
+        return result.ok && result.statuses ? result.statuses : {};
     },
 
-    // Real: the order desk's list of paid orders, with shipping addresses.
+    // The order desk's list of paid orders, with shipping addresses.
     // The Worker only answers when given the ADMIN_KEY secret.
     async adminListOrders(adminKey) {
         return adminRequest(adminKey, "/admin/orders");
@@ -330,24 +468,14 @@ const api = {
 
     async adminUpdateOrder(adminKey, orderId, fields) {
         return adminRequest(adminKey, "/admin/orders/" + encodeURIComponent(orderId), fields);
-    },
-
-    // Orders are matched by email, so guest orders appear once that email signs up
-    async getOrders() {
-        const session = await this.getSession();
-        if (!session) {
-            return [];
-        }
-
-        const orders = loadDb().orders
-            .filter(order => order.email === session.email)
-            .sort((a, b) => b.date.localeCompare(a.date));
-
-        // Square's confirmation, kept by the Worker, wins over what this browser saved
-        const statuses = await this.getOrderStatuses(orders.map(order => order.id));
-        return orders.map(order => {
-            const status = statuses[order.id] || order.status;
-            return { ...order, status: status, statusLabel: ORDER_STATUS_LABELS[status] || status };
-        });
     }
 };
+
+async function adminRequest(adminKey, path, fields) {
+    if (DEMO_MODE) {
+        return { ok: false, error: "The order desk needs the Worker. Set WORKER_URL in js/api.js." };
+    }
+
+    const result = await workerRequest(path, { body: fields, token: adminKey });
+    return result.ok ? result : { ...result, unauthorized: result.status === 401 };
+}

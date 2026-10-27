@@ -97,7 +97,7 @@ function renderSignIn(container) {
 }
 
 function orderStatusClass(status) {
-    if (status === "paid") {
+    if (status === "paid" || status === "shipped") {
         return "order-status-paid";
     }
     return status === "payment_failed" ? "order-status-problem" : "";
@@ -114,12 +114,15 @@ async function renderDashboard(container, session) {
                 <div class="order-header">
                     <strong>${order.id}</strong>
                     <span>${formatDate(order.date)}</span>
-                    <span class="order-status ${orderStatusClass(order.status)}">${escapeHtml(order.statusLabel)}</span>
+                    <span class="order-status ${orderStatusClass(order.shownStatus)}">${escapeHtml(order.statusLabel)}</span>
                     <strong>${formatPrice(order.total ?? order.subtotal)}</strong>
                 </div>
                 <ul class="order-items">
-                    ${order.items.map(line => `<li>${line.quantity} &times; ${line.name}</li>`).join("")}
+                    ${order.items.map(line => `<li>${line.quantity} &times; ${escapeHtml(line.name)}</li>`).join("")}
                 </ul>
+                ${order.trackingNumber
+                    ? `<p class="order-tracking">Tracking: ${order.carrier ? escapeHtml(order.carrier) + " " : ""}<strong>${escapeHtml(order.trackingNumber)}</strong></p>`
+                    : ""}
             </li>
         `).join("");
 
@@ -264,6 +267,11 @@ document.addEventListener("click", async (event) => {
 
     if (button.dataset.action === "resend-code" || button.dataset.action === "use-code-instead") {
         const result = await api.sendCode(signIn.email);
+        if (!result.ok) {
+            Object.assign(signIn, { error: result.error, info: "" });
+            renderAccount();
+            return;
+        }
         Object.assign(signIn, {
             step: "code",
             isNew: result.isNew,

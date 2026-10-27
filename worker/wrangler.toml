@@ -2,8 +2,8 @@ name = "unco-checkout"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
-# Settings that aren't secret. The Square access token and webhook
-# signature key are NOT here: locally they go in worker/.dev.vars, and on
+# Settings that aren't secret. The Square access token, webhook signature
+# key, admin key and Resend API key are NOT here: locally they go in worker/.dev.vars, and on
 # Cloudflare they're set with `npx wrangler secret put <NAME>`.
 [vars]
 SQUARE_ENVIRONMENT = "sandbox"
@@ -16,6 +16,9 @@ SITE_URL = "https://shopunco.com"
 TAX_PERCENTAGE = "4"
 TAX_NAME = "NY State sales tax"
 
+# Who account emails come from. The domain must be verified in Resend.
+EMAIL_FROM = "unco <hello@shopunco.com>"
+
 # After deploying, set this to the exact URL of the webhook subscription in
 # Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
 # SQUARE_WEBHOOK_URL = ""
@@ -24,3 +27,7 @@ TAX_NAME = "NY State sales tax"
 # on Cloudflare the first time you deploy.
 [[kv_namespaces]]
 binding = "ORDERS"
+
+# Customer accounts, sign-in codes and sessions
+[[kv_namespaces]]
+binding = "ACCOUNTS"

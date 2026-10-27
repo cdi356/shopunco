@@ -457,11 +457,11 @@ async function finishCheckout(email) {
         return;
     }
 
-    if (CHECKOUT_API_URL) {
+    if (!DEMO_MODE) {
         button.disabled = true;
         button.textContent = "Opening secure checkout...";
 
-        // The Worker gives the order its number, so it's saved here afterwards
+        // The Worker gives the order its number and links it to this email
         const checkout = await api.createCheckout(email, cart);
         if (!checkout.ok) {
             errorBox.textContent = checkout.error;
@@ -469,8 +469,6 @@ async function finishCheckout(email) {
             button.textContent = "Try Again";
             return;
         }
-
-        await api.placeOrder(email, cart, checkout.orderId, checkout.total);
 
         // The cart is emptied when Square sends the shopper back to #thank-you
         try {
@@ -543,7 +541,7 @@ function renderThankYou() {
         </div>
     `;
 
-    if (orderId && CHECKOUT_API_URL) {
+    if (orderId && !DEMO_MODE) {
         showPaymentStatus(orderId);
     }
 }

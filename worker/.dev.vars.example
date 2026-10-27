@@ -20,3 +20,8 @@ SQUARE_WEBHOOK_URL=http://localhost:8787/square/webhook
 # Opens the order desk (#admin on the site). Use a long random value, e.g.
 # from a password manager. On Cloudflare: npx wrangler secret put ADMIN_KEY
 ADMIN_KEY=paste-a-long-random-key-here
+
+# Email. Without a Resend key, EMAIL_DEV_LOG=true prints emails (including
+# sign-in codes) to the Worker's log instead. Never set it on Cloudflare.
+# RESEND_API_KEY=paste-your-resend-api-key-here
+EMAIL_DEV_LOG=true

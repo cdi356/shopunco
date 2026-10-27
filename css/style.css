@@ -1353,3 +1353,9 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+.order-tracking {
+    margin-top: 8px;
+    color: #555;
+    font-size: 14px;
+}

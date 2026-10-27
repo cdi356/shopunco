@@ -1,8 +1,11 @@
 import products from "../../js/products.js";
+import { handleAccounts, addOrderToAccount } from "./accounts.js";
+import { corsHeaders, json, safeEqual } from "./http.js";
 
-// Turns a cart from the site into a Square-hosted checkout page, keeps
-// track of whether each order was actually paid, and runs the private order
-// desk (#admin on the site) used to place each paid order on AliExpress.
+// The site's backend. It turns a cart into a Square-hosted checkout page,
+// keeps track of whether each order was actually paid, runs customer
+// accounts (accounts.js), and runs the private order desk (#admin on the
+// site) used to place each paid order on AliExpress.
 // Prices always come from js/products.js here on the server, never from
 // the browser, so a shopper can't change what they pay.
 
@@ -37,6 +40,13 @@ export default {
 
         if (url.pathname.startsWith("/admin/")) {
             return handleAdmin(request, url, env, cors);
+        }
+
+        if (url.pathname.startsWith("/auth/") || url.pathname.startsWith("/account/")) {
+            if (!cors["Access-Control-Allow-Origin"]) {
+                return json({ error: "This site isn't allowed to use accounts." }, 403, cors);
+            }
+            return handleAccounts(request, url, env, cors);
         }
 
         const isCheckout = request.method === "POST" && url.pathname === "/checkout";
@@ -105,6 +115,9 @@ async function handleCheckout(request, env, cors) {
     });
     if (result.squareOrderId) {
         await env.ORDERS.put("square-order:" + result.squareOrderId, orderId);
+    }
+    if (email) {
+        await addOrderToAccount(env, email, orderId);
     }
 
     return json({ checkoutUrl: result.url, orderId: orderId, total: result.total }, 200, cors);
@@ -304,11 +317,7 @@ async function isValidSignature(env, rawBody, signature) {
         ["sign"]
     );
     const digest = await crypto.subtle.sign("HMAC", key, encoder.encode(env.SQUARE_WEBHOOK_URL + rawBody));
-    const expected = encoder.encode(btoa(String.fromCharCode(...new Uint8Array(digest))));
-    const received = encoder.encode(signature);
-
-    return expected.byteLength === received.byteLength &&
-        crypto.subtle.timingSafeEqual(expected, received);
+    return safeEqual(btoa(String.fromCharCode(...new Uint8Array(digest))), signature);
 }
 
 // Returns the order, changed or not, or null if we don't know it
@@ -415,12 +424,7 @@ async function handleAdmin(request, url, env, cors) {
 }
 
 function isAdmin(request, env) {
-    const encoder = new TextEncoder();
-    const expected = encoder.encode("Bearer " + env.ADMIN_KEY);
-    const received = encoder.encode(request.headers.get("Authorization") || "");
-
-    return expected.byteLength === received.byteLength &&
-        crypto.subtle.timingSafeEqual(expected, received);
+    return safeEqual(request.headers.get("Authorization") || "", "Bearer " + env.ADMIN_KEY);
 }
 
 // Unpaid orders are abandoned checkouts, so only paid and refunded ones are
@@ -486,30 +490,4 @@ async function updateFulfillment(request, env, cors, orderId) {
     await saveOrder(env, order);
 
     return json({ order: order }, 200, cors);
-}
-
-/* ------------------------- */
-/*          helpers          */
-/* ------------------------- */
-
-function corsHeaders(request, env) {
-    const origin = request.headers.get("Origin") || "";
-    const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
-    const headers = {
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Vary": "Origin"
-    };
-
-    if (allowed.includes(origin)) {
-        headers["Access-Control-Allow-Origin"] = origin;
-    }
-    return headers;
-}
-
-function json(data, status, headers) {
-    return new Response(JSON.stringify(data), {
-        status: status,
-        headers: { ...headers, "Content-Type": "application/json" }
-    });
 }

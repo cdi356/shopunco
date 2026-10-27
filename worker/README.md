@@ -1,7 +1,8 @@
-# unco checkout Worker
+# unco Worker
 
-A small Cloudflare Worker that turns the site's cart into a Square checkout
-page and keeps track of whether each order was actually paid.
+A small Cloudflare Worker that is the site's backend: Square checkout,
+payment confirmation, customer accounts with emailed sign-in codes, and the
+private order desk.
 
 1. The site sends only product ids and quantities. The Worker looks up prices
    in `js/products.js`, gives the order its number, and asks Square for a
@@ -16,7 +17,13 @@ page and keeps track of whether each order was actually paid.
    AliExpress link, so you can place the order on AliExpress, then record the
    AliExpress order number and tracking number there.
 
-Your Square access token, webhook signature key and admin key are passwords. Never put
+Customer accounts (`src/accounts.js`): shoppers sign in with a 6-digit code
+emailed through [Resend](https://resend.com), or with a password they choose.
+Orders are linked to the email they were placed with, so guest orders appear
+once that email signs up. Order history shows payment status and, once you
+add it on the order desk, the tracking number.
+
+Your Square access token, webhook signature key, admin key and Resend API key are passwords. Never put
 them in the website files, in `wrangler.toml`, in a commit, or in a chat.
 
 ## 1. Test locally with Square's sandbox
@@ -38,10 +45,14 @@ The sandbox is Square's test mode: fake cards, no real money.
    npm run dev
    ```
 
-5. In `js/api.js`, set `CHECKOUT_API_URL` to `"http://localhost:8787"`.
+5. In `js/api.js`, set `WORKER_URL` to `"http://localhost:8787"`. (Empty
+   `WORKER_URL` switches the site to its in-browser demo instead.)
 6. Start the site preview (port 8080), add items, and click **Proceed to
    Checkout**. In the sandbox, Square shows a testing panel instead of the
    card page; click **Test Payment** there.
+
+Without a Resend key, `EMAIL_DEV_LOG=true` in `.dev.vars` prints each email,
+including sign-in codes, to the terminal running `npm run dev`.
 
 Square can't send webhooks to your own computer, so locally the thank-you
 page stays on "Confirming your payment". To test it, sign a fake webhook
@@ -65,7 +76,7 @@ POST it to `http://localhost:8787/square/webhook`.
    locally. The first deploy also creates the `ORDERS` storage. Wrangler
    prints the Worker's address, like
    `https://unco-checkout.<your-subdomain>.workers.dev`.
-3. Set `CHECKOUT_API_URL` in `js/api.js` to that address.
+3. Set `WORKER_URL` in `js/api.js` to that address.
 4. Connect Square's payment notifications:
     1. In your application on developer.squareup.com, open **Webhooks >
        Subscriptions** (Sandbox) and click **Add subscription**.
@@ -90,6 +101,31 @@ POST it to `http://localhost:8787/square/webhook`.
 
    Then open `#admin` on the site and enter it. The key is forgotten when
    you close the tab.
+
+## Sending email (Resend)
+
+Sign-in codes are emailed from `hello@shopunco.com` through Resend's free
+plan (3,000 emails a month, 100 a day).
+
+1. Create a free account at [resend.com](https://resend.com).
+2. Go to **Domains**, click **Add Domain**, and enter `shopunco.com`.
+3. Resend lists a few DNS records (a DKIM `TXT` record, plus an `MX` and a
+   `TXT` record on the `send` subdomain). shopunco.com's DNS is at
+   Squarespace: open **Squarespace > Domains > shopunco.com > DNS**, and under
+   **Custom records** add each record exactly as Resend shows it. Leave the
+   existing records alone, including the `v=spf1 -all` one.
+4. Back in Resend, click **Verify DNS Records**. It can take from minutes to
+   a few hours.
+5. Go to **API Keys**, create a key with **Sending access**, and store it:
+
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   ```
+
+   To try it locally, paste it into `.dev.vars` as `RESEND_API_KEY=...`
+   instead.
+
+`EMAIL_FROM` in `wrangler.toml` must use the verified domain.
 
 ## Order desk
 
@@ -122,12 +158,16 @@ access token and location ID, and create the same webhook subscription under
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | secret | Proves payment notifications really came from Square |
 | `SQUARE_WEBHOOK_URL` | `wrangler.toml` | The webhook subscription's exact URL, used to check signatures |
 | `SQUARE_ENVIRONMENT` | `wrangler.toml` | `sandbox` (test) or `production` (real money) |
-| `ALLOWED_ORIGINS` | `wrangler.toml` | Websites allowed to start checkouts and read order statuses |
+| `ALLOWED_ORIGINS` | `wrangler.toml` | Websites allowed to use checkout, accounts and order statuses |
 | `SITE_URL` | `wrangler.toml` | Where Square sends shoppers after paying |
 | `TAX_PERCENTAGE` | `wrangler.toml` | Sales tax added to every item (4 = NY State). Keep in sync with `TAX_PERCENT` in `js/main.js` |
 | `TAX_NAME` | `wrangler.toml` | How the tax is labeled on Square's page and receipt |
 | `SHIPPING_FEE_CENTS` | optional var | Flat shipping fee, e.g. `599` for $5.99. Unset = free shipping |
 | `ADMIN_KEY` | secret | Opens the order desk (`#admin`) |
+| `RESEND_API_KEY` | secret | Sends sign-in code emails |
+| `EMAIL_FROM` | `wrangler.toml` | Who emails come from; its domain must be verified in Resend |
+| `EMAIL_DEV_LOG` | `.dev.vars` only | `true` prints emails to the log when there's no Resend key. Never set it on Cloudflare |
+| `ACCOUNTS` | KV storage | Customer accounts, sign-in codes and sessions |
 | `ORDERS` | KV storage | Each order's payment status, items, shipping address and order-desk progress |
 
 Catalog items: add `squareVariationId` to a product in `js/products.js` and
