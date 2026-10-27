@@ -43,9 +43,9 @@ CJ_AUTO_PAY = "false"
 CJ_LOGISTIC_NAME = "CJPacket Ordinary,CJPacket Sensitive"
 CJ_FROM_COUNTRY = "CN"
 
-# After deploying, set this to the exact URL of the webhook subscription in
-# Square, e.g. "https://unco-checkout.<you>.workers.dev/square/webhook"
-# SQUARE_WEBHOOK_URL = ""
+# The exact URL of the webhook subscription in Square, used to check that
+# payment notices really came from Square
+SQUARE_WEBHOOK_URL = "https://unco-checkout.unco-checkout.workers.dev/square/webhook"
 
 # Where each order's payment status is kept. Wrangler creates this storage
 # on Cloudflare the first time you deploy.
