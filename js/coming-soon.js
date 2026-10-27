@@ -15,6 +15,17 @@ const UNLOCK_PASSWORD_SHA256 = "e30fcc586373f44ca746bbf877703c0203834e9e0778d339
 const TILDE_PRESSES = 5;
 const TILDE_WINDOW_MS = 3000;
 
+// Visiting any page with ?lock (e.g. shopunco.com/?lock) forgets the unlock
+// and reloads the home page, so the coming-soon page shows again
+if (new URLSearchParams(location.search).has("lock")) {
+    try {
+        localStorage.removeItem(UNLOCK_KEY);
+    } catch (error) {
+        // Storage unavailable; the unlock was never remembered anyway
+    }
+    location.replace(location.origin + "/");
+}
+
 function isUnlocked() {
     try {
         return localStorage.getItem(UNLOCK_KEY) === "yes";
