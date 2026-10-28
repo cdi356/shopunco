@@ -88,12 +88,34 @@ function renderSignIn(container) {
         `;
     }
 
-    container.innerHTML = `<section class="account-card sign-in">${form}</section>`;
+    container.innerHTML = `
+        <section class="account-card sign-in">${form}</section>
+        <div class="sign-in">${textSizeCard()}</div>
+    `;
 
     const firstInput = container.querySelector("input");
     if (firstInput) {
         firstInput.focus();
     }
+}
+
+// Offered whether or not the visitor is signed in; see js/text-size.js
+function textSizeCard() {
+    const current = getTextSize();
+    const choices = Object.entries(TEXT_SIZES).map(([value, label]) => `
+        <label class="choice">
+            <input type="radio" name="text-size" value="${value}" ${value === current ? "checked" : ""}>
+            <span style="font-size: ${{ standard: 16, larger: 18, largest: 21 }[value]}px">${label}</span>
+        </label>
+    `).join("");
+
+    return `
+        <section class="account-card">
+            <h2>Text size</h2>
+            <p class="form-hint">Make words and buttons bigger on this device.</p>
+            <div class="text-size-choices" role="radiogroup" aria-label="Text size">${choices}</div>
+        </section>
+    `;
 }
 
 function orderStatusClass(status) {
@@ -164,6 +186,8 @@ async function renderDashboard(container, session) {
                     <button class="button-primary" type="submit">Save</button>
                 </form>
             </section>
+
+            ${textSizeCard()}
 
             <section class="account-card account-orders">
                 <h2>Order history</h2>
@@ -254,6 +278,10 @@ async function saveLoginMethod(form) {
 }
 
 document.addEventListener("change", (event) => {
+    if (event.target.name === "text-size") {
+        setTextSize(event.target.value);
+    }
+
     if (event.target.name === "login-method") {
         document.getElementById("password-fields").hidden = event.target.value !== "password";
     }
